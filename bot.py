@@ -24,7 +24,7 @@ from telegram.error import TelegramError
 
 # --- Настройки ---
 BOT_TOKEN = os.environ.get('BOT_TOKEN')  # Берем из секретов GitHub
-DB_CHANNEL_ID = int(os.environ.get('DB_CHANNEL_ID', -1003883431431))  # Можно с запасным значением
+DB_CHANNEL_ID = int(os.environ.get('DB_CHANNEL_ID', '-1003883431431'))  # ID канала для БД
 ADMIN_IDS = [1784442476, 1389740970, 5695593671]  # ID админов
 CHAT_ID = -1002501760414  # ID чата Nevermore
 
@@ -1133,14 +1133,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Добавь меня в группу и выдай права администратора для полноценной работы.\n"
         f"В группе используй /help, чтобы узнать доступные команды."
     )
-
-# --- Главная функция для GitHub Actions ---
-async def main():
-    global db
-    print("🚀 Бот запускается...")
-    
-    # Инициализируем БД
-    await init_db()
     
   # --- Точка входа ---
 if __name__ == '__main__':
