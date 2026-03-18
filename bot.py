@@ -26,7 +26,7 @@ from telegram.error import TelegramError
 BOT_TOKEN = os.environ.get('BOT_TOKEN')  # Берем из секретов GitHub
 DB_CHANNEL_ID = int(os.environ.get('DB_CHANNEL_ID', '-1003883431431'))  # ID канала для БД
 ADMIN_IDS = [1784442476, 1389740970, 5695593671]  # ID админов
-CHAT_ID = -1002501760414  # ID чата Nevermore
+CHAT_ID = int(os.environ.get('CHAT_ID', '-1002501760414'))  # ID чата Nevermore
 
 # Ранги (ключ: уровень, значение: название и описание)
 RANKS = {
