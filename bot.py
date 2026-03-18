@@ -1183,23 +1183,22 @@ async def main():
     application.add_handler(CommandHandler("clown", clown))
     application.add_handler(CommandHandler("wish", wish))
 
-    # Обработчик новых участников
-    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
+ # Обработчик новых участников
+application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
 
 # Обработчик всех сообщений
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, update_last_online), group=1)
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_message_rules), group=2)
-
-# Запуск бота
-async def run_bot():
+# --- Запуск бота ---
+async def run_bot(application):
     """Функция для запуска бота"""
     global db
-    print("Бот запускается...")
+    print("🚀 Бот запускается...")
 
     # Инициализируем БД
     await init_db()
 
-    print("БД загружена, запускаем polling...")
+    print("✅ БД загружена, запускаем polling...")
 
     # Запускаем polling
     await application.initialize()
@@ -1207,20 +1206,26 @@ async def run_bot():
     await application.updater.start_polling(timeout=1, drop_pending_updates=True)
 
     # Держим бота запущенным 4 минуты 50 секунд
-    await asyncio.sleep(290)  # ✅ ПРАВИЛЬНО: asyncio.sleep
+    await asyncio.sleep(290)
 
     # Сохраняем БД
-    print("Сохраняем базу данных...")
+    print("💾 Сохраняем базу данных...")
     await db.save()
 
     # Останавливаем бота
-    print("Останавливаем бота...")
+    print("🛑 Останавливаем бота...")
     await application.updater.stop()
     await application.stop()
     await application.shutdown()
 
-    print("Бот завершил работу.")
+    print("👋 Бот завершил работу.")
 
-# Точка входа
+# --- Точка входа ---
 if __name__ == '__main__':
-    asyncio.run(run_bot())  # ✅ ПРАВИЛЬНО: asyncio.run
+    # Создаем application здесь
+    application = Application.builder().token(BOT_TOKEN).build()
+    
+    # Добавляем обработчики команд (весь твой код с обработчиками ДО ЭТОГО МЕСТА)
+    
+    # Запускаем бота
+    asyncio.run(run_bot(application))
