@@ -1186,34 +1186,31 @@ async def main():
     # Обработчик новых участников
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
 
-    # Обработчик всех сообщений
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, update_last_online), group=1)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_message_rules), group=2)
+# Обработчик всех сообщений
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, update_last_online), group=1)
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_message_rules), group=2)
 
-    # Запускаем polling (но он будет работать только пока выполняется GitHub Action)
-    print("✅ Бот готов к работе. Начинаем polling...")
-    
-    # Устанавливаем вебхук (для GitHub Actions лучше использовать polling)
-    await application.initialize()
-    await application.start()
-    
-    # Запускаем polling с таймаутом
-    await application.updater.start_polling(timeout=30)
-    
-    # Держим бота запущенным 5 минут (время выполнения GitHub Action)
-    await asyncio.sleep(290)  # 5 минут - 10 секунд запас
-    
-    # Сохраняем БД перед выключением
-    print("💾 Сохраняем базу данных...")
-    await db.save()
-    
-    # Останавливаем бота
-    print("🛑 Останавливаем бота...")
-    await application.updater.stop()
-    await application.stop()
-    await application.shutdown()
-    
-    print("👋 Бот завершил работу.")
+print("🚀 Бот готов к работе. Начинаем polling...")
+
+# Запускаем polling
+await application.initialize()
+await application.start()
+await application.updater.start_polling(timeout=1, drop_pending_updates=True)
+
+# Держим бота запущенным 4 минуты 50 секунд
+await asyncio.sleep(290)
+
+# Сохраняем БД
+print("💾 Сохраняем базу данных...")
+await db.save()
+
+# Останавливаем бота
+print("🛑 Останавливаем бота...")
+await application.updater.stop()
+await application.stop()
+await application.shutdown()
+
+print("👋 Бот завершил работу.")
 
 if __name__ == '__main__':
     asyncio.run(main())
