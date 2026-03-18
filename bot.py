@@ -23,10 +23,10 @@ from telegram import Bot
 from telegram.error import TelegramError
 
 # --- Настройки ---
-BOT_TOKEN = '8702619122:AAGkrADExDJjBl58r7w8e9mNm7MEOtBKANk'  # Токен бота
-DB_CHANNEL_ID = -1003883431431  # ID канала для БД
+BOT_TOKEN = os.environ.get('BOT_TOKEN')  # Берем из секретов GitHub
+DB_CHANNEL_ID = int(os.environ.get('DB_CHANNEL_ID', -1003883431431))  # Можно с запасным значением
 ADMIN_IDS = [1784442476, 1389740970, 5695593671]  # ID админов
-CHAT_ID = -1002501760414  # ID чата Nevermore (группа)
+CHAT_ID = -1002501760414  # ID чата Nevermore
 
 # Ранги (ключ: уровень, значение: название и описание)
 RANKS = {
