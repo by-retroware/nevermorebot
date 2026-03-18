@@ -1190,27 +1190,37 @@ async def main():
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, update_last_online), group=1)
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_message_rules), group=2)
 
-print("🚀 Бот готов к работе. Начинаем polling...")
+# Запуск бота
+async def run_bot():
+    """Функция для запуска бота"""
+    global db
+    print("Бот запускается...")
 
-# Запускаем polling
-await application.initialize()
-await application.start()
-await application.updater.start_polling(timeout=1, drop_pending_updates=True)
+    # Инициализируем БД
+    await init_db()
 
-# Держим бота запущенным 4 минуты 50 секунд
-await asyncio.sleep(290)
+    print("БД загружена, запускаем polling...")
 
-# Сохраняем БД
-print("💾 Сохраняем базу данных...")
-await db.save()
+    # Запускаем polling
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling(timeout=1, drop_pending_updates=True)
 
-# Останавливаем бота
-print("🛑 Останавливаем бота...")
-await application.updater.stop()
-await application.stop()
-await application.shutdown()
+    # Держим бота запущенным 4 минуты 50 секунд
+    await asyncio.sleep(290)  # ✅ ПРАВИЛЬНО: asyncio.sleep
 
-print("👋 Бот завершил работу.")
+    # Сохраняем БД
+    print("Сохраняем базу данных...")
+    await db.save()
 
+    # Останавливаем бота
+    print("Останавливаем бота...")
+    await application.updater.stop()
+    await application.stop()
+    await application.shutdown()
+
+    print("Бот завершил работу.")
+
+# Точка входа
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(run_bot())  # ✅ ПРАВИЛЬНО: asyncio.run
