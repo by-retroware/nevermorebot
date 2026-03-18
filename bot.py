@@ -1142,10 +1142,12 @@ async def main():
     # Инициализируем БД
     await init_db()
     
-    # Создаем приложение
+  # --- Точка входа ---
+if __name__ == '__main__':
+    # Создаем application здесь
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # Обработчики команд
+    # Обработчики команд (ВЕСЬ ТВОЙ СПИСОК КОМАНД)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("mute", mute))
@@ -1183,49 +1185,43 @@ async def main():
     application.add_handler(CommandHandler("clown", clown))
     application.add_handler(CommandHandler("wish", wish))
 
- # Обработчик новых участников
-application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
+    # Обработчик новых участников
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
 
-# Обработчик всех сообщений
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, update_last_online), group=1)
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_message_rules), group=2)
-# --- Запуск бота ---
-async def run_bot(application):
-    """Функция для запуска бота"""
-    global db
-    print("🚀 Бот запускается...")
+    # Обработчик всех сообщений
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, update_last_online), group=1)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_message_rules), group=2)
 
-    # Инициализируем БД
-    await init_db()
+    # Запуск бота
+    async def run_bot():
+        """Функция для запуска бота"""
+        global db
+        print("🚀 Бот запускается...")
 
-    print("✅ БД загружена, запускаем polling...")
+        # Инициализируем БД
+        await init_db()
 
-    # Запускаем polling
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling(timeout=1, drop_pending_updates=True)
+        print("✅ БД загружена, запускаем polling...")
 
-    # Держим бота запущенным 4 минуты 50 секунд
-    await asyncio.sleep(290)
+        # Запускаем polling
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling(timeout=1, drop_pending_updates=True)
 
-    # Сохраняем БД
-    print("💾 Сохраняем базу данных...")
-    await db.save()
+        # Держим бота запущенным 4 минуты 50 секунд
+        await asyncio.sleep(290)
 
-    # Останавливаем бота
-    print("🛑 Останавливаем бота...")
-    await application.updater.stop()
-    await application.stop()
-    await application.shutdown()
+        # Сохраняем БД
+        print("💾 Сохраняем базу данных...")
+        await db.save()
 
-    print("👋 Бот завершил работу.")
+        # Останавливаем бота
+        print("🛑 Останавливаем бота...")
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
 
-# --- Точка входа ---
-if __name__ == '__main__':
-    # Создаем application здесь
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Добавляем обработчики команд (весь твой код с обработчиками ДО ЭТОГО МЕСТА)
-    
-    # Запускаем бота
-    asyncio.run(run_bot(application))
+        print("👋 Бот завершил работу.")
+
+    # Запускаем
+    asyncio.run(run_bot())
