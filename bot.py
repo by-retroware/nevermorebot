@@ -353,6 +353,11 @@ async def notify_admins(context, text):
                 pass
 
 # ========== КОМАНДЫ ==========
+pending_weddings = {}
+report_cooldowns = {}
+report_votes = {}
+report_id_counter = 0
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     add_user(user)
@@ -378,7 +383,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    add_log(update.effective_user.id, "help")
     await update.message.reply_text("""
 🔥 *FAM NEVERMORE - КОМАНДЫ* 🔥
 
