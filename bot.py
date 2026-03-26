@@ -1615,6 +1615,169 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
             return
 
+# ========== АВТОРИЗАЦИЯ ==========
+pending_auth = {}  # {user_id: {"time": datetime}}
+
+async def auth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Начать авторизацию - команда /auth"""
+    user = update.effective_user
+    
+    # Проверяем, авторизован ли уже
+    u = get_user(user.id)
+    if u and u["nickname"]:
+        await update.message.reply_text(
+            f"✅ *Вы уже авторизованы!*\n\n"
+            f"👤 Никнейм: `{u['nickname']}`\n"
+            f"🎮 Ранг: {get_rank_name(u['role'])} ({u['role']})\n\n"
+            f"Используйте /help для списка команд.",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+    
+    # Отправляем форму
+    form_text = """
+📋 *АВТОРИЗАЦИЯ В СЕМЬЕ NEVERMORE* 📋
+
+*Заполните форму в таком формате:*
+
+`Никнейм: ваш_ник`
+`Ранг: 5`
+
+*Пример:*
+`Никнейм: Dieg0_R3tr0ware`
+`Ранг: 5`
+
+*Правила:*
+• Никнейм без пробелов
+• Ранг от 2 до 8
+
+*Ранги:*
+2️⃣ - Новичок
+3️⃣ - Любитель скорости
+4️⃣ - Образованный
+5️⃣ - Невермор
+6️⃣ - Шарющий
+7️⃣ - Барыга
+8️⃣ - Премиум
+
+*Введите данные в чат!*
+"""
+    await update.message.reply_text(form_text, parse_mode=ParseMode.MARKDOWN)
+    
+    # Сохраняем, что пользователь начал авторизацию
+    pending_auth[user.id] = {"time": datetime.now()}
+
+async def handle_auth_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка сообщений с формой авторизации"""
+    user = update.effective_user
+    message = update.message.text.strip()
+    
+    # Проверяем, ждет ли пользователь авторизацию
+    if user.id not in pending_auth:
+        return
+    
+    # Проверяем время (30 минут на авторизацию)
+    if (datetime.now() - pending_auth[user.id]["time"]).seconds > 1800:
+        del pending_auth[user.id]
+        await update.message.reply_text("⏰ Время авторизации истекло. Напишите /auth заново.")
+        return
+    
+    # Парсим сообщение
+    lines = message.split('\n')
+    nickname = None
+    rank = None
+    
+    for line in lines:
+        line = line.strip()
+        if line.startswith('Никнейм:') or line.startswith('Ник:'):
+            nickname = line.split(':', 1)[1].strip()
+        elif line.startswith('Ранг:'):
+            try:
+                rank = int(line.split(':', 1)[1].strip())
+            except:
+                pass
+    
+    # Проверяем данные
+    if not nickname or rank is None:
+        await update.message.reply_text(
+            "❌ *Неверный формат!*\n\n"
+            "Используйте:\n"
+            "```\n"
+            "Никнейм: ваш_ник\n"
+            "Ранг: 5\n"
+            "```\n\n"
+            "Попробуйте снова или напишите /auth",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+    
+    # Проверяем никнейм
+    if ' ' in nickname:
+        await update.message.reply_text("❌ Никнейм не должен содержать пробелов! Попробуйте снова.")
+        return
+    
+    if len(nickname) < 3 or len(nickname) > 30:
+        await update.message.reply_text("❌ Никнейм должен быть от 3 до 30 символов! Попробуйте снова.")
+        return
+    
+    # Проверяем ранг
+    if rank < 2 or rank > 8:
+        await update.message.reply_text("❌ Ранг должен быть от 2 до 8! Попробуйте снова.")
+        return
+    
+    # Добавляем пользователя
+    add_user(user)
+    update_user(user.id, "nickname", nickname)
+    update_user(user.id, "role", rank)
+    
+    # Удаляем из ожидания
+    del pending_auth[user.id]
+    
+    # Отправляем успешное сообщение
+    await update.message.reply_text(
+        f"✅ *АВТОРИЗАЦИЯ УСПЕШНО ПРОЙДЕНА!* ✅\n\n"
+        f"👤 Ваш ник: `{nickname}`\n"
+        f"🎮 Ваш ранг: {get_rank_name(rank)} ({rank})\n\n"
+        f"🔥 Добро пожаловать в семью *NEVERMORE*!\n\n"
+        f"Используйте /help для списка команд.",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    
+    # Уведомляем модераторов
+    await notify_moderators(
+        context,
+        f"📢 *НОВЫЙ УЧАСТНИК!*\n\n"
+        f"👤 Пользователь: {user.first_name}\n"
+        f"💫 Никнейм: {nickname}\n"
+        f"🎮 Ранг: {get_rank_name(rank)} ({rank})\n\n"
+        f"Теперь он в списке участников! /nlist"
+    )
+    
+    add_log(user.id, "auth", reason=f"ник: {nickname}, ранг: {rank}")
+
+async def check_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Проверить статус авторизации - команда /checkauth"""
+    user = update.effective_user
+    u = get_user(user.id)
+    
+    if u and u["nickname"]:
+        await update.message.reply_text(
+            f"✅ *Вы авторизованы!*\n\n"
+            f"👤 Никнейм: `{u['nickname']}`\n"
+            f"🎮 Ранг: {get_rank_name(u['role'])} ({u['role']})\n"
+            f"⭐ Репутация: {u['rep']}\n"
+            f"⚠️ Варны: {u['warns']}/3\n\n"
+            f"Ваши данные сохранены!",
+            parse_mode=ParseMode.MARKDOWN
+        )
+    else:
+        await update.message.reply_text(
+            f"❌ *Вы не авторизованы!*\n\n"
+            f"Для авторизации напишите команду `/auth` и заполните форму.\n\n"
+            f"Ранги: 2-Новичок, 3-Любитель, 4-Образованный, 5-Невермор, 6-Шарющий, 7-Барыга, 8-Премиум",
+            parse_mode=ParseMode.MARKDOWN
+        )
+
 # ========== ВЕБ-СЕРВЕР ДЛЯ RENDER ==========
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
@@ -1711,6 +1874,11 @@ if __name__ == "__main__":
     # Обработка сообщений
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
     app.add_handler(CallbackQueryHandler(button_callback))
+
+    # Авторизация
+    app.add_handler(CommandHandler("auth", auth_start))
+    app.add_handler(CommandHandler("checkauth", check_auth))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_auth_message))
     
     print("✅ БОТ ЗАПУЩЕН! 🔥 FAM NEVERMORE ONLINE!")
     app.run_polling()
