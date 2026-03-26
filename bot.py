@@ -1,7 +1,6 @@
 import os
 import random
 import sqlite3
-import asyncio
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
@@ -1145,7 +1144,9 @@ async def main():
     print("🚀 ЗАПУСК NEVERMORE FAMILY BOT...")
     init_db()
     print("✅ БАЗА ДАННЫХ SQLite ГОТОВА!")
+
     app = Application.builder().token(BOT_TOKEN).build()
+
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_message))
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
@@ -1191,8 +1192,11 @@ async def main():
     app.add_handler(CommandHandler("all", all_command))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
     app.add_handler(CallbackQueryHandler(button_callback))
+
     print("✅ БОТ ЗАПУЩЕН! 🔥 FAM NEVERMORE ONLINE!")
-    await app.run_polling()
+
+    app.run_polling()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
