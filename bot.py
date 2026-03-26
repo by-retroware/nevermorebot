@@ -1615,6 +1615,29 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
             return
 
+# ========== ВЕБ-СЕРВЕР ДЛЯ RENDER ==========
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'<h1>Nevermore Bot is running!</h1>')
+    
+    def log_message(self, format, *args):
+        pass
+
+def run_web_server():
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    print(f"🌐 Веб-сервер запущен на порту {port}")
+    server.serve_forever()
+
+web_thread = threading.Thread(target=run_web_server, daemon=True)
+web_thread.start()
+
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print("🚀 ЗАПУСК NEVERMORE FAMILY BOT...")
@@ -1623,21 +1646,33 @@ if __name__ == "__main__":
     
     app = Application.builder().token(BOT_TOKEN).build()
     
+    # Приветствие
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_message))
+    
+    # Основные команды
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("rules", rules))
     app.add_handler(CommandHandler("profile", profile))
     app.add_handler(CommandHandler("info", info))
+    
+    # Модерация (роль 8+)
     app.add_handler(CommandHandler("setname", setname))
     app.add_handler(CommandHandler("setprefix", setprefix))
     app.add_handler(CommandHandler("unwarn", unwarn))
     app.add_handler(CommandHandler("giverep", giverep))
+    app.add_handler(CommandHandler("clear", clear))
+    
+    # Свадьбы
     app.add_handler(CommandHandler("wedding", wedding))
     app.add_handler(CommandHandler("divorce", divorce))
     app.add_handler(CommandHandler("weddings", weddings_list))
+    
+    # Репутация
     app.add_handler(CommandHandler("plus", plus))
     app.add_handler(CommandHandler("minus", minus))
+    
+    # Развлечения
     app.add_handler(CommandHandler("kiss", kiss))
     app.add_handler(CommandHandler("hug", hug))
     app.add_handler(CommandHandler("slap", slap))
@@ -1646,9 +1681,13 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("gay", gay))
     app.add_handler(CommandHandler("clown", clown))
     app.add_handler(CommandHandler("wish", wish))
+    
+    # Статистика
     app.add_handler(CommandHandler("top", top))
     app.add_handler(CommandHandler("online", online))
     app.add_handler(CommandHandler("check", check))
+    
+    # Модерационные команды
     app.add_handler(CommandHandler("warn", warn))
     app.add_handler(CommandHandler("mute", mute))
     app.add_handler(CommandHandler("unmute", unmute))
@@ -1658,8 +1697,9 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("bans", bans_list))
     app.add_handler(CommandHandler("mutelist", mutelist))
     app.add_handler(CommandHandler("logs", logs_command))
-    app.add_handler(CommandHandler("clear", clear))
     app.add_handler(CommandHandler("report", report))
+    
+    # Администрирование
     app.add_handler(CommandHandler("setrole", setrole))
     app.add_handler(CommandHandler("role", role))
     app.add_handler(CommandHandler("giveaccess", giveaccess))
@@ -1667,6 +1707,8 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("grole", grole))
     app.add_handler(CommandHandler("roles", roles))
     app.add_handler(CommandHandler("all", all_command))
+    
+    # Обработка сообщений
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
     app.add_handler(CallbackQueryHandler(button_callback))
     
