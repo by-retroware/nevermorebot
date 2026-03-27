@@ -1616,25 +1616,20 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
 # ========== АВТОРИЗАЦИЯ ==========
-pending_auth = {}  # {user_id: {"time": datetime}}
+pending_auth = {}
 
 async def auth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начать авторизацию - команда /auth"""
     user = update.effective_user
+    await update.message.reply_text("🔐 Команда /auth получена! Обрабатываю...")
     
-    # Проверяем, авторизован ли уже
     u = get_user(user.id)
     if u and u["nickname"]:
-        await update.message.reply_text(
-            f"✅ *Вы уже авторизованы!*\n\n"
-            f"👤 Никнейм: `{u['nickname']}`\n"
-            f"🎮 Ранг: {get_rank_name(u['role'])} ({u['role']})\n\n"
-            f"Используйте /help для списка команд.",
-            parse_mode=ParseMode.MARKDOWN
-        )
+        await update.message.reply_text(f"✅ Вы уже авторизованы! Ник: {u['nickname']}")
         return
     
-    # Отправляем форму
+    pending_auth[user.id] = {"time": datetime.now()}
+    
     form_text = """
 📋 *АВТОРИЗАЦИЯ В СЕМЬЕ NEVERMORE* 📋
 
@@ -1644,7 +1639,7 @@ async def auth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 `Ранг: 5`
 
 *Пример:*
-`Никнейм: Dieg0_R3tr0ware`
+`Никнейм: Diego_Retroware`
 `Ранг: 5`
 
 *Правила:*
@@ -1663,9 +1658,6 @@ async def auth_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 *Введите данные в чат!*
 """
     await update.message.reply_text(form_text, parse_mode=ParseMode.MARKDOWN)
-    
-    # Сохраняем, что пользователь начал авторизацию
-    pending_auth[user.id] = {"time": datetime.now()}
 
 async def handle_auth_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка сообщений с формой авторизации"""
@@ -1682,15 +1674,16 @@ async def handle_auth_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("⏰ Время авторизации истекло. Напишите /auth заново.")
         return
     
-    # Парсим сообщение (поддерживаем разные варианты написания)
+    # Парсим сообщение (поддерживаем все возможные варианты)
     lines = message.split('\n')
     nickname = None
     rank = None
     
     for line in lines:
         line = line.strip()
-        # Поддерживаем: Никнейм, Ник, Нижнейм (с ошибкой)
-        if line.startswith('Никнейм:') or line.startswith('Ник:') or line.startswith('Нижнейм:'):
+        # Поддерживаем: Никнейм, Ник, Нижнейм, Нижний
+        if (line.startswith('Никнейм:') or line.startswith('Ник:') or 
+            line.startswith('Нижнейм:') or line.startswith('Нижний:')):
             nickname = line.split(':', 1)[1].strip()
         elif line.startswith('Ранг:'):
             try:
