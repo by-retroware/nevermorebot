@@ -22,7 +22,7 @@ def is_group(update: Update) -> bool:
     return update.effective_chat and update.effective_chat.type in ['group', 'supergroup']
 
 # ========== КОНФИГ ==========
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8768445585:AAEV44NdL684Fi_NLBRmWk89LROJr15nUZ0")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8768445585:AAHzkCok9liE_sottsWDdTKqSu1jYTzDErA")
 ADMINS = {int(x) for x in os.getenv("ADMINS", "5695593671,1784442476").split(",")}
 FAMILY_NAME = "Nevermore"
 FAMILY_LINK = "https://t.me/famnevermore"
@@ -2741,6 +2741,7 @@ async def creator_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     text = """
+
 👑 *ПАНЕЛЬ СОЗДАТЕЛЯ* 👑
 
 📊 *УПРАВЛЕНИЕ БАЗОЙ ДАННЫХ:*
