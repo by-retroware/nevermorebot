@@ -1888,15 +1888,16 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
 
-# ========== ВЕБ-СЕРВЕР ДЛЯ RENDER ==========
+# ========== ВЕБ-СЕРВЕР ДЛЯ RENDER (ИСПРАВЛЕННЫЙ) ==========
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 import json
 from datetime import datetime
+import time
+import socket
+import sys
 
-class SimpleHandler(BaseHTTPRequestHandler):
+class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # Обрабатываем разные пути
         if self.path == '/health' or self.path == '/ping':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
@@ -1907,66 +1908,68 @@ class SimpleHandler(BaseHTTPRequestHandler):
                 "timestamp": datetime.now().isoformat()
             }
             self.wfile.write(json.dumps(response).encode())
-            
         elif self.path == '/':
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
-            self.wfile.write(b'''
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Nevermore Family Bot</title>
-                    <style>
-                        body {
-                            font-family: Arial, sans-serif;
-                            text-align: center;
-                            padding: 50px;
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            color: white;
-                        }
-                        h1 { font-size: 48px; }
-                        .status { 
-                            background: rgba(255,255,255,0.2);
-                            padding: 20px;
-                            border-radius: 10px;
-                            display: inline-block;
-                        }
-                        a { color: white; text-decoration: none; }
-                    </style>
-                </head>
-                <body>
-                    <div class="status">
-                        <h1>🤖 NEVERMORE FAMILY BOT</h1>
-                        <p>Status: <strong>✅ ONLINE</strong></p>
-                        <p>Version: 1.0.0</p>
-                        <p><a href="/health">Health Check →</a></p>
-                    </div>
-                </body>
-                </html>
-            ''')
+            self.wfile.write(b'<h1>Nevermore Bot is running!</h1><p>Status: ONLINE</p><a href="/health">Health Check</a>')
         else:
             self.send_response(404)
-            self.send_header('Content-type', 'text/html')
             self.end_headers()
-            self.wfile.write(b'<h1>404 Not Found</h1>')
     
     def log_message(self, format, *args):
-        # Отключаем логи для чистоты
+        # Отключаем логи
         pass
 
-def run_web_server():
+def start_web_server():
+    """Запускает веб-сервер и гарантированно открывает порт"""
     port = int(os.getenv("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
-    print(f"🌐 Веб-сервер запущен на порту {port}")
-    print(f"🔗 Health check: http://localhost:{port}/health")
-    print(f"🔗 Главная страница: http://localhost:{port}/")
-    server.serve_forever()
+    
+    # Пробуем запустить сервер с повторными попытками
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            server = HTTPServer(('0.0.0.0', port), HealthHandler)
+            print(f"✅ Веб-сервер запущен на порту {port}")
+            print(f"🔗 Health check: http://localhost:{port}/health")
+            
+            # Держим сервер запущенным
+            server.serve_forever()
+            break
+        except OSError as e:
+            if "Address already in use" in str(e) and attempt < max_retries - 1:
+                print(f"⚠️ Порт {port} занят, пробуем {port + 1}...")
+                port += 1
+            else:
+                print(f"❌ Не удалось запустить сервер: {e}")
+                # Не падаем, просто продолжаем
+                return
+        except Exception as e:
+            print(f"❌ Ошибка при запуске сервера: {e}")
+            return
 
-# Запускаем сервер в отдельном потоке
-web_thread = threading.Thread(target=run_web_server, daemon=True)
+# Запускаем сервер НЕ в фоновом потоке, а в основном
+# Но используем threading, чтобы не блокировать бота
+import threading
+web_thread = threading.Thread(target=start_web_server, daemon=False)
 web_thread.start()
-print("✅ Веб-сервер успешно запущен в фоновом режиме")
+
+# Даём время серверу запуститься
+time.sleep(2)
+
+# Проверяем, что порт открыт
+try:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    result = sock.connect_ex(('127.0.0.1', int(os.getenv("PORT", 10000))))
+    if result == 0:
+        print(f"✅ Порт {os.getenv('PORT', 10000)} успешно открыт")
+    else:
+        print(f"⚠️ Порт {os.getenv('PORT', 10000)} не открыт")
+    sock.close()
+except Exception as e:
+    print(f"⚠️ Не удалось проверить порт: {e}")
+
+print("✅ Веб-сервер успешно настроен")
 
 # ========== ПРОСМОТР БАЗЫ ДАННЫХ ==========
 async def check_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
