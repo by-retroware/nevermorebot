@@ -416,7 +416,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("""
+    """Список команд"""
+    user_id = update.effective_user.id
+    is_creator = user_id in ADMINS
+    
+    help_text = """
 🔥 *FAM NEVERMORE - КОМАНДЫ* 🔥
 
 👤 *ПРОФИЛЬ:*
@@ -462,6 +466,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /report [текст] - Пожаловаться
 /setname [@username] [ник] - Установить ник
 /setprefix [@username] [префикс] - Установить префикс
+/giverep [@username] [кол-во] - Выдать репутацию (требует 150⭐)
 
 👑 *АДМИНИСТРИРОВАНИЕ (роль 9-10):*
 /setrole [@username] [2-10] - Выдать роль
@@ -474,7 +479,40 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 📜 *ПРАВИЛА:*
 /rules - Показать правила
-""", parse_mode=ParseMode.MARKDOWN)
+"""
+    
+    # Добавляем секцию для создателя (только если пользователь в ADMINS)
+    if is_creator:
+        creator_section = """
+
+👑 *ДЛЯ СОЗДАТЕЛЯ* 👑
+
+📊 *УПРАВЛЕНИЕ БАЗОЙ ДАННЫХ:*
+/checkdb - Все пользователи
+/checkmutes - Активные муты
+/checkbans - Активные баны
+/checkweddings - Активные свадьбы
+/sql [запрос] - Выполнить SQL запрос
+/backup - Создать бэкап БД
+
+⭐ *УПРАВЛЕНИЕ РЕПУТАЦИЕЙ:*
+/takerep [@username] [кол-во] - Забрать репутацию
+/resetrep [@username] - Сбросить репутацию
+
+👤 *УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ:*
+/editnick [@username] [новый_ник] - Изменить ник
+/delnick [@username] - Удалить ник
+/setrank [@username] [ранг] - Изменить ранг
+/resetuser [@username] - Полный сброс пользователя
+
+🔧 *СИСТЕМНЫЕ:*
+/creator - Панель создателя
+/stats - Статистика бота
+/clearlogs - Очистить логи
+"""
+        help_text += creator_section
+    
+    await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
 
 async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(RULES, parse_mode=ParseMode.MARKDOWN)
@@ -2713,7 +2751,6 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("mutelist", mutelist))
     app.add_handler(CommandHandler("logs", logs_command))
     app.add_handler(CommandHandler("report", report))
-    app.add_handler(CommandHandler("setuser", setuser))
     app.add_handler(CommandHandler("delnick", delnick))
     app.add_handler(CommandHandler("setnick", setnick))
     print("  ✓ warn, mute, unmute, ban, unban, warns, bans, mutelist, logs, report, setuser, delnick, setnick")
@@ -2743,7 +2780,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("clearlogs", clear_logs))
     app.add_handler(CommandHandler("stats", bot_stats))
     app.add_handler(CommandHandler("sql", sql_query))
-    print("  ✓ creator, checkdb, checkmutes, checkbans, checkweddings, takerep, resetrep, editnick, setrank, resetuser, backup, clearlogs, stats, sql")
+    app.add_handler(CommandHandler("setuser", setuser))
     
     # Автоматическая авторизация
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_auth))
