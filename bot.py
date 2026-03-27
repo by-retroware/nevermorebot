@@ -1822,8 +1822,9 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = message.from_user
     text = message.text.strip()
     
-    # Проверяем, что сообщение содержит "Никнейм:" и "Ранг:"
-    if 'Никнейм:' not in text and 'Ник:' not in text and 'Нижнейм:' not in text:
+    # Проверяем, что сообщение содержит ключевые слова
+    keywords = ['Никнейм:', 'Ник:', 'Нижнейм:', 'Никнём:']
+    if not any(kw in text for kw in keywords):
         return
     
     # Парсим сообщение
@@ -1833,9 +1834,11 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     for line in lines:
         line = line.strip()
-        if line.startswith('Никнейм:') or line.startswith('Ник:') or line.startswith('Нижнейм:'):
+        # Ищем никнейм
+        if line.startswith('Никнейм:') or line.startswith('Ник:') or line.startswith('Нижнейм:') or line.startswith('Никнём:'):
             nickname = line.split(':', 1)[1].strip()
-        elif line.startswith('Ранг:'):
+        # Ищем ранг
+        elif line.startswith('Ранг:') or line.startswith('Парт:') or line.startswith('Уровень:'):
             try:
                 rank = int(line.split(':', 1)[1].strip())
             except:
