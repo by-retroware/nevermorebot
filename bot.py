@@ -1857,25 +1857,82 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ========== ВЕБ-СЕРВЕР ДЛЯ RENDER ==========
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
+import json
+from datetime import datetime
 
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        self.wfile.write(b'<h1>Nevermore Bot is running!</h1>')
+        # Обрабатываем разные пути
+        if self.path == '/health' or self.path == '/ping':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            response = {
+                "status": "ok",
+                "bot": "Nevermore Family Bot",
+                "timestamp": datetime.now().isoformat()
+            }
+            self.wfile.write(json.dumps(response).encode())
+            
+        elif self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b'''
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Nevermore Family Bot</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            text-align: center;
+                            padding: 50px;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                        }
+                        h1 { font-size: 48px; }
+                        .status { 
+                            background: rgba(255,255,255,0.2);
+                            padding: 20px;
+                            border-radius: 10px;
+                            display: inline-block;
+                        }
+                        a { color: white; text-decoration: none; }
+                    </style>
+                </head>
+                <body>
+                    <div class="status">
+                        <h1>🤖 NEVERMORE FAMILY BOT</h1>
+                        <p>Status: <strong>✅ ONLINE</strong></p>
+                        <p>Version: 1.0.0</p>
+                        <p><a href="/health">Health Check →</a></p>
+                    </div>
+                </body>
+                </html>
+            ''')
+        else:
+            self.send_response(404)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b'<h1>404 Not Found</h1>')
     
     def log_message(self, format, *args):
+        # Отключаем логи для чистоты
         pass
 
 def run_web_server():
     port = int(os.getenv("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
     print(f"🌐 Веб-сервер запущен на порту {port}")
+    print(f"🔗 Health check: http://localhost:{port}/health")
+    print(f"🔗 Главная страница: http://localhost:{port}/")
     server.serve_forever()
 
+# Запускаем сервер в отдельном потоке
 web_thread = threading.Thread(target=run_web_server, daemon=True)
 web_thread.start()
+print("✅ Веб-сервер успешно запущен в фоновом режиме")
 
 # ========== ПРОСМОТР БАЗЫ ДАННЫХ ==========
 async def check_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
