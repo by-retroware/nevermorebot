@@ -1813,10 +1813,19 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
 # ========== АВТОМАТИЧЕСКАЯ АВТОРИЗАЦИЯ ==========
+# ========== АВТОМАТИЧЕСКАЯ АВТОРИЗАЦИЯ ==========
 async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Автоматическая обработка сообщений с формой авторизации"""
+    
+    # ОТЛАДКА - УБЕРИ ПОТОМ
+    print("🔍 auto_auth вызвана!")
+    if update.message:
+        print(f"📝 Текст сообщения: {update.message.text[:200]}")
+        print(f"👤 От пользователя: {update.message.from_user.id}")
+    
     message = update.message
     if not message or not message.text:
+        print("❌ Нет сообщения или текста")
         return
     
     user = message.from_user
@@ -1825,7 +1834,10 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Проверяем, что сообщение содержит ключевые слова
     keywords = ['Никнейм:', 'Ник:', 'Нижнейм:', 'Никнём:']
     if not any(kw in text for kw in keywords):
+        print("❌ Нет ключевых слов в сообщении")
         return
+    
+    print("✅ Ключевые слова найдены, начинаю парсинг...")
     
     # Парсим сообщение
     lines = text.split('\n')
@@ -1837,15 +1849,19 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Ищем никнейм
         if line.startswith('Никнейм:') or line.startswith('Ник:') or line.startswith('Нижнейм:') or line.startswith('Никнём:'):
             nickname = line.split(':', 1)[1].strip()
+            print(f"📌 Найден никнейм: {nickname}")
         # Ищем ранг
         elif line.startswith('Ранг:') or line.startswith('Парт:') or line.startswith('Уровень:'):
             try:
                 rank = int(line.split(':', 1)[1].strip())
+                print(f"📌 Найден ранг: {rank}")
             except:
+                print(f"⚠️ Ошибка парсинга ранга: {line}")
                 pass
     
     # Проверяем данные
     if not nickname or not rank:
+        print(f"❌ Не найдены данные: nickname={nickname}, rank={rank}")
         await message.reply_text(
             "❌ *Неверный формат!*\n\n"
             "Используйте:\n"
@@ -1930,8 +1946,9 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Удаляем сообщение с формой
     try:
         await message.delete()
+        print("✅ Сообщение удалено")
     except:
-        pass
+        print("⚠️ Не удалось удалить сообщение")
 
 # ========== ВЕБ-СЕРВЕР ДЛЯ RENDER (ИСПРАВЛЕННЫЙ) ==========
 from http.server import HTTPServer, BaseHTTPRequestHandler
