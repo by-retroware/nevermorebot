@@ -448,7 +448,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /report [текст] - Пожаловаться
 /setname [@username] [ник] - Установить ник
 /setprefix [@username] [префикс] - Установить префикс
-/giverep [@username] [кол-во] - Выдать репутацию (требует 150⭐)
 
 👑 *АДМИНИСТРИРОВАНИЕ (роль 9-10):*
 /setrole [@username] [2-10] - Выдать роль
@@ -548,24 +547,80 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(info_text, parse_mode=ParseMode.MARKDOWN)
 
 async def setname(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Установить ник пользователю по @username или ID или реплаю"""
     if not is_moderator(update.effective_user.id):
         await update.message.reply_text("⛔ Нет прав! Требуется роль 8+")
         return
-    if len(context.args) < 2:
-        await update.message.reply_text("❌ /setname [@username] [ник]\n\nПример: /setname @username Крутой_Чел")
+    
+    target_user = None
+    nickname = None
+    
+    # Если есть аргументы
+    if context.args:
+        target_input = context.args[0]
+        
+        # Если есть второй аргумент - это ник
+        if len(context.args) >= 2:
+            nickname = ' '.join(context.args[1:])[:50]
+        
+        # Пытаемся получить пользователя
+        target_id = get_user_id_from_input(target_input)
+        if target_id:
+            target_user = get_user(target_id)
+            if not target_user:
+                # Добавляем в базу если нет
+                try:
+                    chat_member = await context.bot.get_chat_member(update.effective_chat.id, target_id)
+                    add_user(chat_member.user)
+                    target_user = get_user(target_id)
+                except:
+                    pass
+        
+        # Если не нашли пользователя, значит первый аргумент может быть ником
+        if not target_user and nickname is None:
+            nickname = target_input
+            target_user = get_user(update.effective_user.id)
+    
+    # Если есть реплай
+    elif update.message.reply_to_message:
+        target_user = get_user(update.message.reply_to_message.from_user.id)
+        if not target_user:
+            add_user(update.message.reply_to_message.from_user)
+            target_user = get_user(update.message.reply_to_message.from_user.id)
+        if context.args:
+            nickname = ' '.join(context.args)[:50]
+    
+    # Если нет цели
+    if not target_user:
+        await update.message.reply_text(
+            "❌ *Неверный формат!*\n\n"
+            "Используйте:\n"
+            "• `/setname @username Ник`\n"
+            "• `/setname [user_id] Ник`\n"
+            "• `/setname Ник` (в ответ на сообщение)\n\n"
+            "Пример: `/setname @vipkotax Крутой_Чел`",
+            parse_mode=ParseMode.MARKDOWN
+        )
         return
     
-    uid = get_user_id_from_input(context.args[0])
-    if not uid:
-        await update.message.reply_text("❌ Пользователь не найден!")
+    if not nickname:
+        await update.message.reply_text("❌ Укажите никнейм!\n\nПример: `/setname @username Крутой_Чел`", parse_mode=ParseMode.MARKDOWN)
         return
     
-    name = ' '.join(context.args[1:])[:50]
-    update_user(uid, "nickname", name)
-    u = get_user(uid)
-    await update.message.reply_text(f"✅ *{u['name']}* получил ник: {name}", parse_mode=ParseMode.MARKDOWN)
-    add_log(update.effective_user.id, "set_name", uid, name)
+    # Устанавливаем ник
+    update_user(target_user["user_id"], "nickname", nickname)
+    
+    await update.message.reply_text(
+        f"✅ *Никнейм установлен!*\n\n"
+        f"👤 Пользователь: {target_user['name']}\n"
+        f"💫 Новый ник: `{nickname}`",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "set_name", target_user["user_id"], nickname)
 
+async def setnick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Алиас для /setname"""
+    await setname(update, context)
 async def setprefix(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_moderator(update.effective_user.id):
         await update.message.reply_text("⛔ Нет прав! Требуется роль 8+")
@@ -1122,28 +1177,35 @@ async def nlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📋 Список пуст")
         return
     
+    # Сортируем по рангу (от высшего к низшему)
+    users_list = sorted(users_list, key=lambda x: x["role"] or 0, reverse=True)
+    
     text = "📋 *СПИСОК УЧАСТНИКОВ*\n\n"
-    for u in users_list[:50]:
-        # Определяем отображаемое имя
+    
+    for u in users_list:
+        # Никнейм (с подчеркиваниями)
         if u["nickname"]:
-            display_name = u["nickname"]
+            name = u["nickname"]
         else:
-            display_name = u["name"]
+            name = u["name"]
         
-        # Добавляем username если есть
-        if u["username"]:
-            display_name = f"{display_name} (@{u['username']})"
+        # Username в скобках
+        username = f" (@{u['username']})" if u["username"] else ""
         
-        # Модераторская отметка
-        mod = ""
+        # Ранг
+        rank_text = f"{u['role']} ранг"
+        
+        # Модераторская роль
+        mod_role = ""
         if u["mod_role"] == 8:
-            mod = " [🛡️Мод]"
+            mod_role = " [Модератор]"
         elif u["mod_role"] == 9:
-            mod = " [👑Админ]"
+            mod_role = " [Администратор]"
         elif u["mod_role"] == 10:
-            mod = " [💎Рук]"
+            mod_role = " [Руководитель]"
         
-        text += f"• {display_name} — ранг {u['role']}{mod}\n"
+        text += f"• {name}{username} — {rank_text}{mod_role}\n"
+        
         if len(text) > 4000:
             text += "\n... и другие"
             break
@@ -1730,18 +1792,35 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text("❌ Никнейм должен быть от 3 до 30 символов!")
         return
     
-    # Проверяем ранг (теперь 2-10)
+    # Проверяем ранг (2-10)
     if rank < 2 or rank > 10:
         await message.reply_text("❌ Ранг должен быть от 2 до 10!")
         return
     
-    # Проверяем, не авторизован ли уже
+    # Проверяем, не авторизован ли уже этот пользователь
     u = get_user(user.id)
     if u and u["nickname"]:
         await message.reply_text(
-            f"✅ *Вы уже авторизованы!*\n\n"
+            f"❌ *Вы уже авторизованы!*\n\n"
             f"Ваш ник: `{u['nickname']}`\n"
-            f"Ваш ранг: {get_rank_name(u['role'])} ({u['role']})",
+            f"Ваш ранг: {get_rank_name(u['role'])} ({u['role']})\n\n"
+            f"Изменить данные может только модератор.",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+    
+    # Проверяем, что ник не занят (уникальность)
+    existing = None
+    for existing_user in get_all_users():
+        if existing_user["nickname"] and existing_user["nickname"].lower() == nickname.lower():
+            existing = existing_user
+            break
+    
+    if existing:
+        await message.reply_text(
+            f"❌ *Никнейм `{nickname}` уже занят!*\n\n"
+            f"Пользователь: {existing['name']}\n"
+            f"Пожалуйста, выберите другой никнейм.",
             parse_mode=ParseMode.MARKDOWN
         )
         return
@@ -1900,6 +1979,565 @@ async def check_weddings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
+async def setuser(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Установить ник и ранг пользователя"""
+    if not is_moderator(update.effective_user.id):
+        await update.message.reply_text("⛔ Нет прав! Требуется роль 8+")
+        return
+    
+    if len(context.args) < 3:
+        await update.message.reply_text("❌ /setuser [@username] [ник] [ранг]\n\nПример: /setuser @username Diego_Retroware 5")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    nickname = context.args[1][:50]
+    try:
+        role = int(context.args[2])
+        if role < 2 or role > 10:
+            await update.message.reply_text("❌ Ранг должен быть от 2 до 10")
+            return
+    except:
+        await update.message.reply_text("❌ Неверный формат ранга!")
+        return
+    
+    u = get_user(uid)
+    if not u:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_nick = u["nickname"] or "Не установлен"
+    old_role = u["role"]
+    
+    update_user(uid, "nickname", nickname)
+    update_user(uid, "role", role)
+    
+    await update.message.reply_text(
+        f"✅ *{u['name']}* обновлён!\n\n"
+        f"📝 Ник: {old_nick} → {nickname}\n"
+        f"🎮 Ранг: {old_role} → {role} ({get_rank_name(role)})",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "setuser", uid, f"ник:{nickname}, ранг:{role}")
+
+async def edit_nick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Изменить никнейм пользователя (только для роли 9-10)"""
+    user_id = update.effective_user.id
+    u = get_user(user_id)
+    
+    # Проверяем роль 9 или 10
+    if user_id not in ADMINS and (not u or u["mod_role"] not in [9, 10]):
+        await update.message.reply_text("⛔ Нет прав! Требуется роль 9+")
+        return
+    
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ /editnick [@username] [новый_ник]\n\nПример: /editnick @username ПравильныйНик")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    new_nick = ' '.join(context.args[1:])[:50]
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    # Проверка на уникальность ника
+    existing = None
+    for existing_user in get_all_users():
+        if existing_user["nickname"] and existing_user["nickname"].lower() == new_nick.lower() and existing_user["user_id"] != uid:
+            existing = existing_user
+            break
+    
+    if existing:
+        await update.message.reply_text(f"❌ Никнейм `{new_nick}` уже занят! Выберите другой.", parse_mode=ParseMode.MARKDOWN)
+        return
+    
+    old_nick = target["nickname"] or "Не был установлен"
+    update_user(uid, "nickname", new_nick)
+    
+    await update.message.reply_text(
+        f"✅ *{target['name']}* никнейм изменён!\n"
+        f"📝 Старый: {old_nick}\n"
+        f"💫 Новый: {new_nick}",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(user_id, "edit_nick", uid, f"{old_nick} -> {new_nick}")
+
+async def delnick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Удалить никнейм пользователя (только для роли 9-10)"""
+    user_id = update.effective_user.id
+    u = get_user(user_id)
+    
+    if user_id not in ADMINS and (not u or u["mod_role"] not in [9, 10]):
+        await update.message.reply_text("⛔ Нет прав! Требуется роль 9+")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ /delnick [@username]\n\nПример: /delnick @username")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_nick = target["nickname"] or "Не был установлен"
+    update_user(uid, "nickname", None)
+    
+    await update.message.reply_text(
+        f"✅ У *{target['name']}* удалён никнейм\n"
+        f"📝 Старый ник: {old_nick}",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(user_id, "delnick", uid, old_nick
+
+# ========== ДЛЯ СОЗДАТЕЛЯ (ТОЛЬКО ВЛАДЕЛЕЦ) ==========
+
+async def creator_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Панель создателя (только для владельца)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Доступ запрещен! Только для создателя.")
+        return
+    
+    text = """
+👑 *ПАНЕЛЬ СОЗДАТЕЛЯ* 👑
+
+📊 *УПРАВЛЕНИЕ БАЗОЙ ДАННЫХ:*
+/checkdb - Все пользователи
+/checkmutes - Активные муты
+/checkbans - Активные баны
+/checkweddings - Активные свадьбы
+/sql [запрос] - Выполнить SQL запрос
+/backup - Создать бэкап БД
+
+⭐ *УПРАВЛЕНИЕ РЕПУТАЦИЕЙ:*
+/giverep [@username] [кол-во] - Выдать репутацию
+/take rep [@username] [кол-во] - Забрать репутацию
+/resetrep [@username] - Сбросить репутацию
+
+👤 *УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ:*
+/editnick [@username] [новый_ник] - Изменить ник
+/delnick [@username] - Удалить ник
+/setrank [@username] [ранг] - Изменить ранг
+/resetuser [@username] - Сбросить все данные
+
+🔧 *СИСТЕМНЫЕ:*
+/restart - Перезагрузить бота
+/clearlogs - Очистить логи
+/stats - Статистика бота
+"""
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def take_rep(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Забрать репутацию у пользователя (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ /takerep [@username] [кол-во]\n\nПример: /takerep @username 50")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    try:
+        amount = int(context.args[1])
+        if amount <= 0:
+            await update.message.reply_text("❌ Количество должно быть положительным!")
+            return
+    except:
+        await update.message.reply_text("❌ Неверный формат количества!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_rep = target["rep"] or 0
+    new_rep = max(0, old_rep - amount)
+    update_user(uid, "rep", new_rep)
+    
+    await update.message.reply_text(
+        f"💀 *{target['name']}* потерял {amount} репутации!\n"
+        f"Было: {old_rep}⭐ → Стало: {new_rep}⭐",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "take_rep", uid, f"-{amount}")
+
+async def reset_rep(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сбросить репутацию пользователя (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ /resetrep [@username]\n\nПример: /resetrep @username")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_rep = target["rep"] or 0
+    update_user(uid, "rep", 0)
+    
+    await update.message.reply_text(
+        f"🔄 Репутация *{target['name']}* сброшена!\n"
+        f"Было: {old_rep}⭐ → Стало: 0⭐",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "reset_rep", uid, f"было {old_rep}")
+
+async def edit_nick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Изменить никнейм пользователя (только для роли 9-10)"""
+    user_id = update.effective_user.id
+    u = get_user(user_id)
+    
+    # Проверяем роль 9 или 10
+    if user_id not in ADMINS and (not u or u["mod_role"] not in [9, 10]):
+        await update.message.reply_text("⛔ Нет прав! Требуется роль 9+")
+        return
+    
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ /editnick [@username] [новый_ник]\n\nПример: /editnick @username ПравильныйНик")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    new_nick = ' '.join(context.args[1:])[:50]
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    # Проверка на уникальность ника
+    existing = None
+    for existing_user in get_all_users():
+        if existing_user["nickname"] and existing_user["nickname"].lower() == new_nick.lower() and existing_user["user_id"] != uid:
+            existing = existing_user
+            break
+    
+    if existing:
+        await update.message.reply_text(f"❌ Никнейм `{new_nick}` уже занят! Выберите другой.", parse_mode=ParseMode.MARKDOWN)
+        return
+    
+    old_nick = target["nickname"] or "Не был установлен"
+    update_user(uid, "nickname", new_nick)
+    
+    await update.message.reply_text(
+        f"✅ *{target['name']}* никнейм изменён!\n"
+        f"📝 Старый: {old_nick}\n"
+        f"💫 Новый: {new_nick}",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(user_id, "edit_nick", uid, f"{old_nick} -> {new_nick}")
+
+async def delnick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Удалить никнейм пользователя (только для роли 9-10)"""
+    user_id = update.effective_user.id
+    u = get_user(user_id)
+    
+    if user_id not in ADMINS and (not u or u["mod_role"] not in [9, 10]):
+        await update.message.reply_text("⛔ Нет прав! Требуется роль 9+")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ /delnick [@username]\n\nПример: /delnick @username")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_nick = target["nickname"] or "Не был установлен"
+    update_user(uid, "nickname", None)
+    
+    await update.message.reply_text(
+        f"✅ У *{target['name']}* удалён никнейм\n"
+        f"📝 Старый ник: {old_nick}",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(user_id, "delnick", uid, old_nick)
+
+async def set_rank(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Изменить игровой ранг пользователя (только для роли 9-10)"""
+    user_id = update.effective_user.id
+    u = get_user(user_id)
+    
+    if user_id not in ADMINS and (not u or u["mod_role"] not in [9, 10]):
+        await update.message.reply_text("⛔ Нет прав! Требуется роль 9+")
+        return
+    
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ /setrank [@username] [2-10]\n\nПример: /setrank @username 5")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    try:
+        rank = int(context.args[1])
+        if rank < 2 or rank > 10:
+            await update.message.reply_text("❌ Ранг должен быть от 2 до 10")
+            return
+    except:
+        await update.message.reply_text("❌ Неверный формат ранга!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_rank = target["role"]
+    update_user(uid, "role", rank)
+    
+    await update.message.reply_text(
+        f"🔄 Ранг *{target['name']}* изменён!\n"
+        f"Было: {old_rank} ({get_rank_name(old_rank)})\n"
+        f"Стало: {rank} ({get_rank_name(rank)})",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(user_id, "set_rank", uid, f"{old_rank}→{rank}")
+
+async def reset_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сбросить все данные пользователя (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ /resetuser [@username]\n\nПример: /resetuser @username")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    # Сбрасываем все данные
+    update_user(uid, "nickname", None)
+    update_user(uid, "role", 2)
+    update_user(uid, "warns", 0)
+    update_user(uid, "rep", 0)
+    update_user(uid, "spouse_id", None)
+    update_user(uid, "prefix", None)
+    update_user(uid, "mod_role", None)
+    
+    await update.message.reply_text(
+        f"🔄 *ВСЕ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ СБРОШЕНЫ!*\n\n"
+        f"👤 Пользователь: {target['name']}\n"
+        f"✅ Никнейм удалён\n"
+        f"✅ Ранг сброшен до 2\n"
+        f"✅ Варны обнулены\n"
+        f"✅ Репутация обнулена\n"
+        f"✅ Брак расторгнут\n"
+        f"✅ Модераторская роль снята",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "reset_user", uid, "полный сброс")
+
+async def backup_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Создать бэкап базы данных (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    import io
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Получаем все данные
+    tables = ['users', 'mutes', 'bans', 'weddings', 'logs']
+    backup_text = f"# Бэкап NEVERMORE BOT\n# Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    
+    for table in tables:
+        c.execute(f"SELECT * FROM {table}")
+        rows = c.fetchall()
+        backup_text += f"\n## {table.upper()} ({len(rows)} записей)\n"
+        for row in rows:
+            backup_text += f"{dict(row)}\n"
+    
+    conn.close()
+    
+    # Отправляем файл
+    bio = io.BytesIO(backup_text.encode('utf-8'))
+    bio.name = f"nevermore_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    
+    await update.message.reply_document(
+        document=bio,
+        caption=f"📦 *Бэкап базы данных*\n📅 {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    
+    add_log(update.effective_user.id, "backup_db")
+
+async def clear_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Очистить логи (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM logs")
+    conn.commit()
+    conn.close()
+    
+    await update.message.reply_text("🗑️ *Логи очищены!*", parse_mode=ParseMode.MARKDOWN)
+    add_log(update.effective_user.id, "clear_logs")
+
+async def bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Статистика бота (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    users_count = len(get_all_users())
+    mutes_count = len(get_mutes_list())
+    bans_count = len(get_bans_list())
+    weddings_count = len(get_active_weddings())
+    
+    logs_count = 0
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM logs")
+    logs_count = c.fetchone()[0]
+    conn.close()
+    
+    text = f"""
+📊 *СТАТИСТИКА БОТА* 📊
+
+👥 Пользователей: {users_count}
+🔇 Активных мутов: {mutes_count}
+🔨 Активных банов: {bans_count}
+💍 Активных свадеб: {weddings_count}
+📋 Логов действий: {logs_count}
+
+📅 Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}
+🤖 Бот: @{FAMILY_NAME}_bot
+"""
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def sql_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Выполнить SQL запрос (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text(
+            "❌ /sql [SQL запрос]\n\n"
+            "📝 *Примеры:*\n"
+            "```sql\n"
+            "SELECT * FROM users\n"
+            "SELECT user_id, name, nickname, role FROM users\n"
+            "UPDATE users SET role = 5 WHERE user_id = 123456789\n"
+            "DELETE FROM logs WHERE time < '2024-01-01'\n"
+            "```",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+    
+    query = ' '.join(context.args)
+    conn = get_db()
+    c = conn.cursor()
+    
+    try:
+        c.execute(query)
+        
+        # Если это SELECT запрос
+        if query.strip().upper().startswith('SELECT'):
+            rows = c.fetchall()
+            if rows:
+                # Получаем названия колонок
+                columns = [description[0] for description in c.description]
+                
+                # Формируем красивый вывод
+                text = f"📊 *РЕЗУЛЬТАТ SQL ЗАПРОСА*\n\n"
+                text += f"📋 Колонки: {', '.join(columns)}\n"
+                text += f"📈 Найдено: {len(rows)} записей\n\n"
+                
+                for i, row in enumerate(rows[:20], 1):
+                    text += f"*{i}.* "
+                    for j, col in enumerate(columns):
+                        value = row[j]
+                        if value is None:
+                            value = "NULL"
+                        text += f"`{col}`: {value}"
+                        if j < len(columns) - 1:
+                            text += ", "
+                    text += "\n"
+                    
+                    if len(text) > 4000:
+                        text += "\n... и ещё"
+                        break
+                
+                await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+            else:
+                await update.message.reply_text("✅ Запрос выполнен, результат пуст")
+        
+        # Если это INSERT, UPDATE, DELETE
+        else:
+            conn.commit()
+            await update.message.reply_text(
+                f"✅ *Запрос выполнен!*\n\n"
+                f"📝 `{query[:100]}`\n"
+                f"📊 Изменено строк: {c.rowcount}",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        
+        add_log(update.effective_user.id, "sql_query", reason=query[:100])
+        
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ *Ошибка SQL!*\n\n"
+            f"```\n{str(e)}\n```",
+            parse_mode=ParseMode.MARKDOWN
+        )
+    finally:
+        conn.close()
+
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print("🚀 ЗАПУСК NEVERMORE FAMILY BOT...")
@@ -1960,6 +2598,9 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("mutelist", mutelist))
     app.add_handler(CommandHandler("logs", logs_command))
     app.add_handler(CommandHandler("report", report))
+    app.add_handler(CommandHandler("setuser", setuser))
+    app.add_handler(CommandHandler("delnick", delnick))
+    app.add_handler(CommandHandler("setnick", setnick))
     
     # Администрирование
     app.add_handler(CommandHandler("setrole", setrole))
@@ -1982,6 +2623,268 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("checkmutes", check_mutes))
     app.add_handler(CommandHandler("checkbans", check_bans))
     app.add_handler(CommandHandler("checkweddings", check_weddings))
+
+    # ========== ДЛЯ СОЗДАТЕЛЯ (ТОЛЬКО ВЛАДЕЛЕЦ) ==========
+
+async def creator_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Панель создателя (только для владельца)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Доступ запрещен! Только для создателя.")
+        return
+    
+    text = """
+👑 *ПАНЕЛЬ СОЗДАТЕЛЯ* 👑
+
+📊 *УПРАВЛЕНИЕ БАЗОЙ ДАННЫХ:*
+/checkdb - Все пользователи
+/checkmutes - Активные муты
+/checkbans - Активные баны
+/checkweddings - Активные свадьбы
+/sql [запрос] - Выполнить SQL запрос
+/backup - Создать бэкап БД
+
+⭐ *УПРАВЛЕНИЕ РЕПУТАЦИЕЙ:*
+/giverep [@username] [кол-во] - Выдать репутацию
+/takerep [@username] [кол-во] - Забрать репутацию
+/resetrep [@username] - Сбросить репутацию
+
+👤 *УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ:*
+/editnick [@username] [новый_ник] - Изменить ник
+/delnick [@username] - Удалить ник
+/setrank [@username] [ранг] - Изменить ранг
+/resetuser [@username] - Сбросить все данные
+
+🔧 *СИСТЕМНЫЕ:*
+/clearlogs - Очистить логи
+/stats - Статистика бота
+"""
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def take_rep(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Забрать репутацию у пользователя (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ /takerep [@username] [кол-во]\n\nПример: /takerep @username 50")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    try:
+        amount = int(context.args[1])
+        if amount <= 0:
+            await update.message.reply_text("❌ Количество должно быть положительным!")
+            return
+    except:
+        await update.message.reply_text("❌ Неверный формат количества!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_rep = target["rep"] or 0
+    new_rep = max(0, old_rep - amount)
+    update_user(uid, "rep", new_rep)
+    
+    await update.message.reply_text(
+        f"💀 *{target['name']}* потерял {amount} репутации!\n"
+        f"Было: {old_rep}⭐ → Стало: {new_rep}⭐",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "take_rep", uid, f"-{amount}")
+
+async def reset_rep(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сбросить репутацию пользователя (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ /resetrep [@username]\n\nПример: /resetrep @username")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_rep = target["rep"] or 0
+    update_user(uid, "rep", 0)
+    
+    await update.message.reply_text(
+        f"🔄 Репутация *{target['name']}* сброшена!\n"
+        f"Было: {old_rep}⭐ → Стало: 0⭐",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "reset_rep", uid, f"было {old_rep}")
+
+async def edit_nick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Изменить никнейм пользователя (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ /editnick [@username] [новый_ник]\n\nПример: /editnick @username ПравильныйНик")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    new_nick = ' '.join(context.args[1:])[:50]
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    # Проверка на уникальность
+    existing = None
+    for existing_user in get_all_users():
+        if existing_user["nickname"] and existing_user["nickname"].lower() == new_nick.lower() and existing_user["user_id"] != uid:
+            existing = existing_user
+            break
+    
+    if existing:
+        await update.message.reply_text(f"❌ Никнейм `{new_nick}` уже занят!", parse_mode=ParseMode.MARKDOWN)
+        return
+    
+    old_nick = target["nickname"] or "Не был установлен"
+    update_user(uid, "nickname", new_nick)
+    
+    await update.message.reply_text(
+        f"✅ *{target['name']}* никнейм изменён!\n"
+        f"📝 Старый: {old_nick}\n"
+        f"💫 Новый: {new_nick}",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "edit_nick", uid, f"{old_nick} -> {new_nick}")
+
+async def delnick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Удалить никнейм пользователя (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ /delnick [@username]\n\nПример: /delnick @username")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_nick = target["nickname"] or "Не был установлен"
+    update_user(uid, "nickname", None)
+    
+    await update.message.reply_text(
+        f"✅ У *{target['name']}* удалён никнейм\n"
+        f"📝 Старый ник: {old_nick}",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "delnick", uid, old_nick)
+
+async def set_rank(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Изменить игровой ранг пользователя (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ /setrank [@username] [2-10]\n\nПример: /setrank @username 5")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    try:
+        rank = int(context.args[1])
+        if rank < 2 or rank > 10:
+            await update.message.reply_text("❌ Ранг должен быть от 2 до 10")
+            return
+    except:
+        await update.message.reply_text("❌ Неверный формат ранга!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    old_rank = target["role"]
+    update_user(uid, "role", rank)
+    
+    await update.message.reply_text(
+        f"🔄 Ранг *{target['name']}* изменён!\n"
+        f"Было: {old_rank} ({get_rank_name(old_rank)})\n"
+        f"Стало: {rank} ({get_rank_name(rank)})",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "set_rank", uid, f"{old_rank}→{rank}")
+
+async def reset_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сбросить все данные пользователя (только для создателя)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ /resetuser [@username]\n\nПример: /resetuser @username")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    target = get_user(uid)
+    if not target:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    update_user(uid, "nickname", None)
+    update_user(uid, "role", 2)
+    update_user(uid, "warns", 0)
+    update_user(uid, "rep", 0)
+    update_user(uid, "spouse_id", None)
+    update_user(uid, "prefix", None)
+    update_user(uid, "mod_role", None)
+    
+    await update.message.reply_text(
+        f"🔄 *ВСЕ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ СБРОШЕНЫ!*\n\n"
+        f"👤 Пользователь: {target['name']}\n"
+        f"✅ Никнейм удалён\n"
+        f"✅ Ранг сброшен до 2\n"
+        f"✅ Варны обнулены\n"
+        f"✅ Репутация обнулена\n"
+        f"✅ Брак расторгнут\n"
+        f"✅ Модераторская роль снята",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(update.effective_user.id, "reset_user", uid, "полный сброс")
+
     
     print("✅ БОТ ЗАПУЩЕН! 🔥 FAM NEVERMORE ONLINE!")
     app.run_polling()
