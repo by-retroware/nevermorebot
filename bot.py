@@ -1798,6 +1798,108 @@ def run_web_server():
 web_thread = threading.Thread(target=run_web_server, daemon=True)
 web_thread.start()
 
+# ========== ПРОСМОТР БАЗЫ ДАННЫХ ==========
+async def check_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Проверить содержимое базы данных (только для админов)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Нет прав! Только владелец!")
+        return
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Получаем всех пользователей
+    c.execute("SELECT user_id, name, username, nickname, role, rep, mod_role FROM users")
+    users = c.fetchall()
+    
+    if not users:
+        await update.message.reply_text("📋 База данных пуста")
+        conn.close()
+        return
+    
+    text = "📊 *БАЗА ДАННЫХ - ВСЕ ПОЛЬЗОВАТЕЛИ*\n\n"
+    for u in users[:20]:
+        name = u["nickname"] or u["name"]
+        username = f" (@{u['username']})" if u["username"] else ""
+        mod_text = ""
+        if u["mod_role"] == 8:
+            mod_text = " [Мод]"
+        elif u["mod_role"] == 9:
+            mod_text = " [Зам]"
+        elif u["mod_role"] == 10:
+            mod_text = " [Лид]"
+        
+        text += f"• {name}{username} — ранг {u['role']}, репа {u['rep']}{mod_text}\n"
+        
+        if len(text) > 4000:
+            text += "\n... и другие"
+            break
+    
+    # Статистика
+    text += f"\n📊 *Всего:* {len(users)} пользователей"
+    
+    conn.close()
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def check_mutes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Проверить активные муты"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Нет прав! Только владелец!")
+        return
+    
+    lst = get_mutes_list()
+    if not lst:
+        await update.message.reply_text("🔇 Нет активных мутов")
+        return
+    
+    text = "🔇 *АКТИВНЫЕ МУТЫ*\n\n"
+    for m in lst:
+        u = get_user(m["user_id"])
+        name = u["nickname"] or u["name"] if u else str(m["user_id"])
+        text += f"• {name} — до {m['until'][:16]}\n"
+    
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def check_bans(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Проверить активные баны"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Нет прав! Только владелец!")
+        return
+    
+    lst = get_bans_list()
+    if not lst:
+        await update.message.reply_text("🔨 Нет активных банов")
+        return
+    
+    text = "🔨 *АКТИВНЫЕ БАНЫ*\n\n"
+    for b in lst:
+        u = get_user(b["user_id"])
+        name = u["nickname"] or u["name"] if u else str(b["user_id"])
+        text += f"• {name} — до {b['until'][:10]}\n"
+    
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def check_weddings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Проверить активные свадьбы"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Нет прав! Только владелец!")
+        return
+    
+    active = get_active_weddings()
+    if not active:
+        await update.message.reply_text("💔 Нет активных свадеб")
+        return
+    
+    text = "💍 *АКТИВНЫЕ СВАДЬБЫ*\n\n"
+    for w in active:
+        u1 = get_user(w["user1"])
+        u2 = get_user(w["user2"])
+        name1 = u1["nickname"] or u1["name"] if u1 else str(w["user1"])
+        name2 = u2["nickname"] or u2["name"] if u2 else str(w["user2"])
+        text += f"• {name1} + {name2}\n"
+    
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print("🚀 ЗАПУСК NEVERMORE FAMILY BOT...")
@@ -1874,6 +1976,12 @@ if __name__ == "__main__":
     # Обработка сообщений
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
     app.add_handler(CallbackQueryHandler(button_callback))
+
+     # Проверка БД (только для владельца)
+    app.add_handler(CommandHandler("checkdb", check_db))
+    app.add_handler(CommandHandler("checkmutes", check_mutes))
+    app.add_handler(CommandHandler("checkbans", check_bans))
+    app.add_handler(CommandHandler("checkweddings", check_weddings))
     
     print("✅ БОТ ЗАПУЩЕН! 🔥 FAM NEVERMORE ONLINE!")
     app.run_polling()
