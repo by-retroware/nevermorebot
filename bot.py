@@ -7,6 +7,20 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
+# ========== НАСТРОЙКА ДЛЯ РАБОТЫ В ГРУППЕ ==========
+import logging
+logging.basicConfig(level=logging.INFO)
+
+# Включаем обработку команд в группах
+class CustomApplication(Application):
+    """Кастомное приложение для работы в группах"""
+    pass
+
+# Функция для проверки, что сообщение из группы
+def is_group(update: Update) -> bool:
+    """Проверяет, пришло ли сообщение из группы"""
+    return update.effective_chat and update.effective_chat.type in ['group', 'supergroup']
+
 # ========== КОНФИГ ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8768445585:AAEV44NdL684Fi_NLBRmWk89LROJr15nUZ0")
 ADMINS = {int(x) for x in os.getenv("ADMINS", "5695593671,1784442476").split(",")}
@@ -1700,16 +1714,22 @@ async def welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ========== ОБРАБОТКА СООБЩЕНИЙ ==========
 async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
+    """Обработка всех сообщений"""
+    if not update.message or not update.message.text:
+        return
+    
+    # Пропускаем команды (они обрабатываются отдельно)
+    if update.message.text.startswith('/'):
         return
     
     user = update.effective_user
-    text = update.message.text or ""
+    text = update.message.text
     
     # Пропускаем сообщения с формой авторизации
     if 'Никнейм:' in text or 'Ник:' in text or 'Нижнейм:' in text:
         return
     
+    # Проверяем бан и мут
     if is_banned(user.id):
         try:
             await update.message.delete()
@@ -1723,6 +1743,20 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
         return
+    
+    # Обновляем статистику
+    add_user(user)
+    
+    # Проверка на нарушения
+    if text:
+        violations = check_rule_violation(text)
+        for v in violations:
+            await apply_punishment(update, user.id, v[1], v[2])
+            try:
+                await update.message.delete()
+            except:
+                pass
+            return
     
     add_user(user)
     
@@ -2595,6 +2629,19 @@ async def sql_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     finally:
         conn.close()
 
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Проверка работоспособности бота"""
+    print(f"🏓 Ping от {update.effective_user.id}")
+    await update.message.reply_text(
+        "🏓 Pong!\n"
+        f"🤖 Bot is alive\n"
+        f"📊 Users: {len(get_all_users())}\n"
+        f"🕐 {datetime.now().strftime('%H:%M:%S')}"
+    )
+
+# Добавьте в список обработчиков:
+app.add_handler(CommandHandler("ping", ping))
+
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print("🚀 ЗАПУСК NEVERMORE FAMILY BOT...")
@@ -2612,6 +2659,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("rules", rules))
     app.add_handler(CommandHandler("profile", profile))
     app.add_handler(CommandHandler("info", info))
+    app.add_handler(CommandHandler("ping", ping))
     
     # Модерация (роль 8+)
     app.add_handler(CommandHandler("setname", setname))
