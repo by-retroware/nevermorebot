@@ -2648,10 +2648,15 @@ if __name__ == "__main__":
     init_db()
     print("✅ БАЗА ДАННЫХ SQLite ГОТОВА!")
     
+    print("1️⃣ Создаю приложение...")
     app = Application.builder().token(BOT_TOKEN).build()
+    print("2️⃣ Приложение создано")
+    
+    print("3️⃣ Регистрирую обработчики...")
     
     # Приветствие
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_message))
+    print("  ✓ welcome_message")
     
     # Основные команды
     app.add_handler(CommandHandler("start", start))
@@ -2659,22 +2664,26 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("rules", rules))
     app.add_handler(CommandHandler("profile", profile))
     app.add_handler(CommandHandler("info", info))
+    print("  ✓ start, help, rules, profile, info")
     
-    # Модерация (роль 8+)
+    # Модерация
     app.add_handler(CommandHandler("setname", setname))
     app.add_handler(CommandHandler("setprefix", setprefix))
     app.add_handler(CommandHandler("unwarn", unwarn))
     app.add_handler(CommandHandler("giverep", giverep))
     app.add_handler(CommandHandler("clear", clear))
+    print("  ✓ setname, setprefix, unwarn, giverep, clear")
     
     # Свадьбы
     app.add_handler(CommandHandler("wedding", wedding))
     app.add_handler(CommandHandler("divorce", divorce))
     app.add_handler(CommandHandler("weddings", weddings_list))
+    print("  ✓ wedding, divorce, weddings")
     
     # Репутация
     app.add_handler(CommandHandler("plus", plus))
     app.add_handler(CommandHandler("minus", minus))
+    print("  ✓ plus, minus")
     
     # Развлечения
     app.add_handler(CommandHandler("kiss", kiss))
@@ -2685,11 +2694,13 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("gay", gay))
     app.add_handler(CommandHandler("clown", clown))
     app.add_handler(CommandHandler("wish", wish))
+    print("  ✓ kiss, hug, slap, me, try, gay, clown, wish")
     
     # Статистика
     app.add_handler(CommandHandler("top", top))
     app.add_handler(CommandHandler("online", online))
     app.add_handler(CommandHandler("check", check))
+    print("  ✓ top, online, check")
     
     # Модерационные команды
     app.add_handler(CommandHandler("warn", warn))
@@ -2705,6 +2716,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("setuser", setuser))
     app.add_handler(CommandHandler("delnick", delnick))
     app.add_handler(CommandHandler("setnick", setnick))
+    print("  ✓ warn, mute, unmute, ban, unban, warns, bans, mutelist, logs, report, setuser, delnick, setnick")
     
     # Администрирование
     app.add_handler(CommandHandler("setrole", setrole))
@@ -2714,16 +2726,36 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("grole", grole))
     app.add_handler(CommandHandler("roles", roles))
     app.add_handler(CommandHandler("all", all_command))
-
-    # Автоматическая авторизация
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_auth))
+    print("  ✓ setrole, role, giveaccess, nlist, grole, roles, all")
     
-    # Обработка сообщений
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
-    app.add_handler(CallbackQueryHandler(button_callback))
-
-     # Проверка БД (только для владельца)
+    # Команды для создателя
+    app.add_handler(CommandHandler("creator", creator_panel))
     app.add_handler(CommandHandler("checkdb", check_db))
     app.add_handler(CommandHandler("checkmutes", check_mutes))
     app.add_handler(CommandHandler("checkbans", check_bans))
     app.add_handler(CommandHandler("checkweddings", check_weddings))
+    app.add_handler(CommandHandler("takerep", take_rep))
+    app.add_handler(CommandHandler("resetrep", reset_rep))
+    app.add_handler(CommandHandler("editnick", edit_nick))
+    app.add_handler(CommandHandler("setrank", set_rank))
+    app.add_handler(CommandHandler("resetuser", reset_user))
+    app.add_handler(CommandHandler("backup", backup_db))
+    app.add_handler(CommandHandler("clearlogs", clear_logs))
+    app.add_handler(CommandHandler("stats", bot_stats))
+    app.add_handler(CommandHandler("sql", sql_query))
+    print("  ✓ creator, checkdb, checkmutes, checkbans, checkweddings, takerep, resetrep, editnick, setrank, resetuser, backup, clearlogs, stats, sql")
+    
+    # Автоматическая авторизация
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_auth))
+    print("  ✓ auto_auth")
+    
+    # Обработка сообщений
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
+    app.add_handler(CallbackQueryHandler(button_callback))
+    print("  ✓ all_messages, button_callback")
+    
+    print("4️⃣ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
+    print("✅ БОТ ГОТОВ К ЗАПУСКУ! 🔥 FAM NEVERMORE ONLINE!")
+    
+    print("5️⃣ Запускаю polling...")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
