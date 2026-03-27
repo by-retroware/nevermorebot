@@ -2642,9 +2642,6 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🕐 {datetime.now().strftime('%H:%M:%S')}"
     )
 
-# Добавьте в список обработчиков:
-app.add_handler(CommandHandler("ping", ping))
-
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print("🚀 ЗАПУСК NEVERMORE FAMILY BOT...")
@@ -2662,7 +2659,6 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("rules", rules))
     app.add_handler(CommandHandler("profile", profile))
     app.add_handler(CommandHandler("info", info))
-    app.add_handler(CommandHandler("ping", ping))
     
     # Модерация (роль 8+)
     app.add_handler(CommandHandler("setname", setname))
