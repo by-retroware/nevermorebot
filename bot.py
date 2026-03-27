@@ -2102,7 +2102,7 @@ async def delnick(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📝 Старый ник: {old_nick}",
         parse_mode=ParseMode.MARKDOWN
     )
-    add_log(user_id, "delnick", uid, old_nick
+    add_log(user_id, "delnick", uid, old_nick)
 
 # ========== ДЛЯ СОЗДАТЕЛЯ (ТОЛЬКО ВЛАДЕЛЕЦ) ==========
 
