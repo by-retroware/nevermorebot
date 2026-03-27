@@ -1070,6 +1070,7 @@ async def giveaccess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await role(update, context)
 
 async def nlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Список участников с их никами и username"""
     if not is_moderator(update.effective_user.id):
         await update.message.reply_text("⛔ Нет прав! Требуется роль 8+")
         return
@@ -1081,6 +1082,17 @@ async def nlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = "📋 *СПИСОК УЧАСТНИКОВ*\n\n"
     for u in users_list[:50]:
+        # Определяем отображаемое имя
+        if u["nickname"]:
+            display_name = u["nickname"]
+        else:
+            display_name = u["name"]
+        
+        # Добавляем username если есть
+        if u["username"]:
+            display_name = f"{display_name} (@{u['username']})"
+        
+        # Модераторская отметка
         mod = ""
         if u["mod_role"] == 8:
             mod = " [🛡️Мод]"
@@ -1089,7 +1101,7 @@ async def nlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif u["mod_role"] == 10:
             mod = " [💎Лид]"
         
-        text += f"• {u['nickname'] or u['name']} ({u['role']}){mod}\n"
+        text += f"• {display_name} — ранг {u['role']}{mod}\n"
         if len(text) > 4000:
             text += "\n... и другие"
             break
