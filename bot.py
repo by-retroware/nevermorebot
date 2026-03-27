@@ -1682,14 +1682,15 @@ async def handle_auth_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("⏰ Время авторизации истекло. Напишите /auth заново.")
         return
     
-    # Парсим сообщение
+    # Парсим сообщение (поддерживаем разные варианты написания)
     lines = message.split('\n')
     nickname = None
     rank = None
     
     for line in lines:
         line = line.strip()
-        if line.startswith('Никнейм:') or line.startswith('Ник:'):
+        # Поддерживаем: Никнейм, Ник, Нижнейм (с ошибкой)
+        if line.startswith('Никнейм:') or line.startswith('Ник:') or line.startswith('Нижнейм:'):
             nickname = line.split(':', 1)[1].strip()
         elif line.startswith('Ранг:'):
             try:
