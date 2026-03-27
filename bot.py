@@ -1871,6 +1871,7 @@ if __name__ == "__main__":
 
     # Авторизация
     app.add_handler(CommandHandler("auth", auth_start))
+    app.add_handler(CommandHandler("author", auth_start))
     app.add_handler(CommandHandler("checkauth", check_auth))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_auth_message))
     
