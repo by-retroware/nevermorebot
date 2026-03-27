@@ -532,7 +532,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 🛡 *РУКОВОДСТВО:*
 👑 Лидер: {leader_text}
-⚔️ Зам. семьи: {deputy_text}
+⚔️ Зам. лидера: {deputy_text}
 🛡 Модератор: {moderators_text}
 
 📊 *СТАТИСТИКА:*
@@ -1051,6 +1051,7 @@ async def role(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     names = {8: "🛡️ Модератор", 9: "👑 Зам. лидера", 10: "💎 Лидер"}
+    marks = {8: " [🛡️Мод]", 9: " [👑Зам]", 10: " [💎Лид]"}
     
     if mod_role == 0:
         update_user(uid, "mod_role", None)
@@ -1058,7 +1059,10 @@ async def role(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_log(user_id, "role_removed", uid)
     else:
         update_user(uid, "mod_role", mod_role)
-        await update.message.reply_text(f"✅ *{get_user(uid)['name']}* получил роль: {names[mod_role]}", parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(
+            f"✅ *{get_user(uid)['name']}* получил роль: {names[mod_role]} {marks[mod_role]}",
+            parse_mode=ParseMode.MARKDOWN
+        )
         add_log(user_id, "role_granted", uid, f"роль {mod_role}")
         
         try:
@@ -1067,7 +1071,45 @@ async def role(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
 
 async def giveaccess(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await role(update, context)
+    user_id = update.effective_user.id
+    u = get_user(user_id)
+    if user_id not in ADMINS and (not u or u["mod_role"] != 10):
+        await update.message.reply_text("⛔ Нет прав! Только лидер может выдавать доступ!")
+        return
+    
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ /giveaccess [@username] [8-10]\n\n8 - Модератор\n9 - Администратор\n10 - Руководитель\n\nПример: /giveaccess @username 8")
+        return
+    
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Пользователь не найден!")
+        return
+    
+    try:
+        level = int(context.args[1])
+    except:
+        await update.message.reply_text("❌ Неверный формат уровня!")
+        return
+    
+    if level not in [8, 9, 10]:
+        await update.message.reply_text("❌ Уровень доступа: 8-модер, 9-администратор, 10-руководитель")
+        return
+    
+    names = {8: "🛡️ Модератор", 9: "👑 Администратор", 10: "💎 Руководитель"}
+    marks = {8: " [🛡️Мод]", 9: " [👑Админ]", 10: " [💎Рук]"}
+    
+    update_user(uid, "mod_role", level)
+    await update.message.reply_text(
+        f"✅ *{get_user(uid)['name']}* получил доступ: {names[level]} {marks[level]}",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    add_log(user_id, "give_access", uid, f"уровень {level}")
+    
+    try:
+        await context.bot.send_message(uid, f"🎉 *Поздравляем!*\n\nТы получил роль: {names[level]}\n\nТеперь ты можешь использовать команды модерации!", parse_mode=ParseMode.MARKDOWN)
+    except:
+        pass
 
 async def nlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Список участников с их никами и username"""
@@ -1097,9 +1139,9 @@ async def nlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if u["mod_role"] == 8:
             mod = " [🛡️Мод]"
         elif u["mod_role"] == 9:
-            mod = " [👑Зам]"
+            mod = " [👑Админ]"
         elif u["mod_role"] == 10:
-            mod = " [💎Лид]"
+            mod = " [💎Рук]"
         
         text += f"• {display_name} — ранг {u['role']}{mod}\n"
         if len(text) > 4000:
