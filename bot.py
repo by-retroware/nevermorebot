@@ -1730,9 +1730,9 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text("❌ Никнейм должен быть от 3 до 30 символов!")
         return
     
-    # Проверяем ранг
-    if rank < 2 or rank > 8:
-        await message.reply_text("❌ Ранг должен быть от 2 до 8!")
+    # Проверяем ранг (теперь 2-10)
+    if rank < 2 or rank > 10:
+        await message.reply_text("❌ Ранг должен быть от 2 до 10!")
         return
     
     # Проверяем, не авторизован ли уже
