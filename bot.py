@@ -466,13 +466,17 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /report [текст] - Пожаловаться
 /setname [@username] [ник] - Установить ник
 /setprefix [@username] [префикс] - Установить префикс
-/giverep [@username] [кол-во] - Выдать репутацию (требует 150⭐)
 
 👑 *АДМИНИСТРИРОВАНИЕ (роль 9-10):*
+/setuser [@username] [ник] [ранг] - Роль и ранг одной командой
 /setrole [@username] [2-10] - Выдать роль
 /role [@username] [0-10] - Сменить роль
 /giveaccess [@username] [8-10] - Выдать доступ
 /nlist - Список участников
+/delnick - Удалить ник
+/setnick - Установить ник (алиас)
+/editnick - Изменить ник
+/setrank - Изменить ранг
 /grole [@username] [0-10] - Игровая роль
 /roles - Все роли
 /all - Призвать всех
