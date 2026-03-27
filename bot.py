@@ -1588,6 +1588,11 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     user = update.effective_user
+    text = update.message.text or ""
+    
+    # Пропускаем сообщения с формой авторизации
+    if 'Никнейм:' in text or 'Ник:' in text or 'Нижнейм:' in text:
+        return
     
     if is_banned(user.id):
         try:
@@ -1605,8 +1610,8 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     add_user(user)
     
-    if update.message.text:
-        violations = check_rule_violation(update.message.text)
+    if text:
+        violations = check_rule_violation(text)
         for v in violations:
             await apply_punishment(update, user.id, v[1], v[2])
             try:
@@ -1808,13 +1813,13 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("grole", grole))
     app.add_handler(CommandHandler("roles", roles))
     app.add_handler(CommandHandler("all", all_command))
+
+    # Автоматическая авторизация
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_auth))
     
     # Обработка сообщений
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
     app.add_handler(CallbackQueryHandler(button_callback))
-    
-    # Автоматическая авторизация
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_auth))
     
     print("✅ БОТ ЗАПУЩЕН! 🔥 FAM NEVERMORE ONLINE!")
     app.run_polling()
