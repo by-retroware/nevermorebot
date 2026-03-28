@@ -42,9 +42,13 @@ def init_db():
     print("✅ База данных PostgreSQL готова (таблицы созданы в Supabase)")
 
 # ========== ФУНКЦИИ БД ==========
+
 def get_user(user_id):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_get_user(user_id))
 
 async def _get_user(user_id):
@@ -54,8 +58,11 @@ async def _get_user(user_id):
     return dict(row) if row else None
 
 def add_user(user):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_add_user(user))
 
 async def _add_user(user):
@@ -74,8 +81,11 @@ async def _add_user(user):
     await conn.close()
 
 def update_user(user_id, field, value):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_update_user(user_id, field, value))
 
 async def _update_user(user_id, field, value):
@@ -84,8 +94,11 @@ async def _update_user(user_id, field, value):
     await conn.close()
 
 def add_log(user_id, action, target=None, reason=None):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_add_log(user_id, action, target, reason))
 
 async def _add_log(user_id, action, target, reason):
@@ -97,8 +110,11 @@ async def _add_log(user_id, action, target, reason):
     await conn.close()
 
 def get_all_users():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_get_all_users())
 
 async def _get_all_users():
@@ -108,8 +124,11 @@ async def _get_all_users():
     return [dict(row) for row in rows]
 
 def get_active_weddings():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_get_active_weddings())
 
 async def _get_active_weddings():
@@ -119,8 +138,11 @@ async def _get_active_weddings():
     return [dict(row) for row in rows]
 
 def add_wedding(u1, u2):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_add_wedding(u1, u2))
 
 async def _add_wedding(u1, u2):
@@ -134,8 +156,11 @@ async def _add_wedding(u1, u2):
     await conn.close()
 
 def divorce_wedding(user_id):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_divorce_wedding(user_id))
 
 async def _divorce_wedding(user_id):
@@ -155,8 +180,11 @@ async def _divorce_wedding(user_id):
     return None
 
 def add_mute(user_id, minutes, reason, mod_id):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_add_mute(user_id, minutes, reason, mod_id))
 
 async def _add_mute(user_id, minutes, reason, mod_id):
@@ -169,8 +197,11 @@ async def _add_mute(user_id, minutes, reason, mod_id):
     await conn.close()
 
 def remove_mute(user_id):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_remove_mute(user_id))
 
 async def _remove_mute(user_id):
@@ -179,8 +210,11 @@ async def _remove_mute(user_id):
     await conn.close()
 
 def is_muted(user_id):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_is_muted(user_id))
 
 async def _is_muted(user_id):
@@ -193,8 +227,11 @@ async def _is_muted(user_id):
     return row is not None
 
 def add_ban(user_id, days, reason, mod_id):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_add_ban(user_id, days, reason, mod_id))
 
 async def _add_ban(user_id, days, reason, mod_id):
@@ -207,8 +244,11 @@ async def _add_ban(user_id, days, reason, mod_id):
     await conn.close()
 
 def remove_ban(user_id):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_remove_ban(user_id))
 
 async def _remove_ban(user_id):
@@ -217,8 +257,11 @@ async def _remove_ban(user_id):
     await conn.close()
 
 def is_banned(user_id):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_is_banned(user_id))
 
 async def _is_banned(user_id):
@@ -231,8 +274,11 @@ async def _is_banned(user_id):
     return row is not None
 
 def get_bans_list():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_get_bans_list())
 
 async def _get_bans_list():
@@ -244,8 +290,11 @@ async def _get_bans_list():
     return [dict(row) for row in rows]
 
 def get_mutes_list():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_get_mutes_list())
 
 async def _get_mutes_list():
@@ -257,8 +306,11 @@ async def _get_mutes_list():
     return [dict(row) for row in rows]
 
 def get_logs(limit=15):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_get_logs(limit))
 
 async def _get_logs(limit):
@@ -268,8 +320,11 @@ async def _get_logs(limit):
     return [dict(row) for row in rows]
 
 def reset_monthly_stats():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     return loop.run_until_complete(_reset_monthly_stats())
 
 async def _reset_monthly_stats():
