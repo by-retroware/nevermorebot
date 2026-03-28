@@ -1086,6 +1086,201 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     add_user(user)
 
+# ========== КОМАНДЫ ДЛЯ СОЗДАТЕЛЯ ==========
+async def check_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    users = get_all_users()
+    if not users:
+        await update.message.reply_text("📋 База данных пуста")
+        return
+    text = "📊 *ПОЛЬЗОВАТЕЛИ:*\n"
+    for u in users[:20]:
+        text += f"• {u.get('nickname') or u['name']} — ранг {u['role']}, репа {u['rep']}\n"
+    text += f"\n📊 Всего: {len(users)}"
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def check_mutes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    mutes = get_mutes_list()
+    if not mutes:
+        await update.message.reply_text("🔇 Нет мутов")
+        return
+    text = "🔇 *Активные муты:*\n"
+    for m in mutes:
+        u = get_user(m["user_id"])
+        text += f"• {u['name'] if u else m['user_id']} — до {m['until'][:16]}\n"
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def check_bans(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    bans = get_bans_list()
+    if not bans:
+        await update.message.reply_text("🔨 Нет банов")
+        return
+    text = "🔨 *Активные баны:*\n"
+    for b in bans:
+        u = get_user(b["user_id"])
+        text += f"• {u['name'] if u else b['user_id']} — до {b['until'][:10]}\n"
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def check_weddings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    weddings = get_active_weddings()
+    if not weddings:
+        await update.message.reply_text("💔 Нет свадеб")
+        return
+    text = "💍 *Активные свадьбы:*\n"
+    for w in weddings:
+        u1 = get_user(w["user1"])
+        u2 = get_user(w["user2"])
+        text += f"• {u1['name'] if u1 else w['user1']} + {u2['name'] if u2 else w['user2']}\n"
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def sql_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    if not context.args:
+        await update.message.reply_text("❌ /sql [запрос]\n\nПример: /sql SELECT * FROM users")
+        return
+    query = ' '.join(context.args)
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        if query.strip().upper().startswith('SELECT'):
+            c.execute(query)
+            rows = c.fetchall()
+            if rows:
+                text = "📊 *РЕЗУЛЬТАТ:*\n"
+                for row in rows[:10]:
+                    text += f"• {row}\n"
+                await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+            else:
+                await update.message.reply_text("✅ Пусто")
+        else:
+            c.execute(query)
+            conn.commit()
+            await update.message.reply_text("✅ Выполнено!")
+        conn.close()
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка: {e}")
+
+async def take_rep(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ /takerep [@username] [кол-во]")
+        return
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Не найден!")
+        return
+    amount = int(context.args[1])
+    u = get_user(uid)
+    new_rep = max(0, (u["rep"] or 0) - amount)
+    update_user(uid, "rep", new_rep)
+    await update.message.reply_text(f"💀 Забрано {amount} репутации! Теперь: {new_rep}⭐")
+    add_log(update.effective_user.id, "take_rep", uid, f"-{amount}")
+
+async def reset_rep(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    if not context.args:
+        await update.message.reply_text("❌ /resetrep [@username]")
+        return
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Не найден!")
+        return
+    u = get_user(uid)
+    old_rep = u["rep"] or 0
+    update_user(uid, "rep", 0)
+    await update.message.reply_text(f"🔄 Репутация сброшена! Было: {old_rep}⭐")
+    add_log(update.effective_user.id, "reset_rep", uid)
+
+async def reset_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    if not context.args:
+        await update.message.reply_text("❌ /resetuser [@username]")
+        return
+    uid = get_user_id_from_input(context.args[0])
+    if not uid:
+        await update.message.reply_text("❌ Не найден!")
+        return
+    update_user(uid, "nickname", None)
+    update_user(uid, "role", 2)
+    update_user(uid, "warns", 0)
+    update_user(uid, "rep", 0)
+    update_user(uid, "spouse_id", None)
+    update_user(uid, "prefix", None)
+    update_user(uid, "mod_role", None)
+    await update.message.reply_text(f"🔄 *ВСЕ ДАННЫЕ СБРОШЕНЫ!*", parse_mode=ParseMode.MARKDOWN)
+    add_log(update.effective_user.id, "reset_user", uid)
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    users = get_all_users()
+    mutes = get_mutes_list()
+    bans = get_bans_list()
+    weddings = get_active_weddings()
+    logs = get_logs(1000)
+    text = f"📊 *СТАТИСТИКА:*\n👥 Пользователей: {len(users)}\n🔇 Мутов: {len(mutes)}\n🔨 Банов: {len(bans)}\n💍 Свадеб: {len(weddings)}\n📋 Логов: {len(logs)}"
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def clear_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM logs")
+    conn.commit()
+    conn.close()
+    await update.message.reply_text("🗑️ *Логи очищены!*", parse_mode=ParseMode.MARKDOWN)
+    add_log(update.effective_user.id, "clear_logs")
+
+async def creator_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    text = """
+👑 *ПАНЕЛЬ СОЗДАТЕЛЯ* 👑
+
+📊 *УПРАВЛЕНИЕ БД:*
+/checkdb - Все пользователи
+/checkmutes - Активные муты
+/checkbans - Активные баны
+/checkweddings - Активные свадьбы
+/sql [запрос] - Выполнить SQL
+
+⭐ *РЕПУТАЦИЯ:*
+/takerep [@username] [кол-во] - Забрать репутацию
+/resetrep [@username] - Сбросить репутацию
+
+👤 *ПОЛЬЗОВАТЕЛИ:*
+/resetuser [@username] - Полный сброс
+
+🔧 *СИСТЕМНЫЕ:*
+/stats - Статистика
+/clearlogs - Очистить логи
+/backupdb - Скачать бэкап
+"""
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print("🚀 ЗАПУСК NEVERMORE FAMILY BOT...")
