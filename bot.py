@@ -2854,7 +2854,7 @@ if __name__ == "__main__":
     app.add_handler(CallbackQueryHandler(button_callback))
     print("  ✓ all_messages, button_callback")
     
-       print("4️⃣ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
+    print("4️⃣ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
     print("✅ БОТ ГОТОВ К ЗАПУСКУ! 🔥 FAM NEVERMORE ONLINE!")
     
     # ========== ЗАПУСК БОТА ==========
