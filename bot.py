@@ -311,18 +311,18 @@ def check_rule_violation(text):
         violations.append(("nazi", 60))
     return violations
 
-# ========== КОМАНДЫ ==========
+# ========== ОСНОВНЫЕ КОМАНДЫ ==========
 pending_weddings = {}
 report_votes = {}
 report_id_counter = 0
 
-# ========== СТАРТ ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     add_user(user)
     add_log(user.id, "start")
     u = get_user(user.id)
     
+    # Определяем статус пользователя
     status_emoji = "👤"
     if u.get("mod_role") == 10:
         status_emoji = "👑"
@@ -331,6 +331,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif u.get("mod_role") == 8:
         status_emoji = "🛡️"
     
+    # Текст приветствия
     welcome_text = f"""
 ╔══════════════════════════════════╗
 ║   🔥 *FAM {FAMILY_NAME}* 🔥   ║
@@ -366,6 +367,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 *Добро пожаловать в семью!* ❤️
 """
     
+    # Клавиатура
     keyboard = [
         [InlineKeyboardButton("📜 Правила", callback_data="rules"),
          InlineKeyboardButton("👤 Профиль", callback_data="profile")],
@@ -380,7 +382,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ========== HELP ==========
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     is_creator = user_id in ADMINS
@@ -402,14 +403,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /minus [reply] - -1 репутации
 
 🎮 *РАЗВЛЕЧЕНИЯ:*
-/kiss [reply] - Поцеловать
-/hug [reply] - Обнять
-/slap [reply] - Ударить
+/kiss [reply] - Поцеловать 💋
+/hug [reply] - Обнять 🤗
+/slap [reply] - Ударить 👋
 /me [действие] - Описать действие
-/try [действие] - Попытать удачу
-/gay - Гей дня
-/clown - Клоун дня
-/wish - Предсказание
+/try [действие] - Попытать удачу 🎯
+/gay - Гей дня 🏳️‍🌈
+/clown - Клоун дня 🤡
+/wish - Предсказание ✨
 
 📊 *СТАТИСТИКА:*
 /top - Топ месяца
@@ -417,28 +418,28 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /check [@username] - Проверить игрока
 
 🔨 *МОДЕРАЦИЯ (роль 8+):*
-/warn [reply] - Предупреждение
+/warn [reply] [причина] - Предупреждение
 /unwarn [@username] - Снять варн
 /mute [reply] [время] - Замутить
 /unmute [reply] - Размутить
-/ban [reply] - Забанить
+/ban [reply] [причина] - Забанить
 /unban [@username] - Разбанить
-/warns [@username] - Варны
-/bans - Список банов
-/mutelist - Список мутов
-/logs - Логи
+/warns [@username] - Варны пользователя
+/bans - Список забаненных
+/mutelist - Список замученных
+/logs - Логи действий
 /clear [кол-во] - Очистить чат
 /report [текст] - Пожаловаться
 /setname [@username] [ник] - Установить ник
-/setprefix [@username] [префикс] - Префикс
+/setprefix [@username] [префикс] - Установить префикс
 
 👑 *АДМИНИСТРИРОВАНИЕ (роль 9-10):*
-/setrole [@username] [2-10] - Выдать ранг
-/role [@username] [0/8/9/10] - Сменить роль
+/setrole [@username] [2-10] - Выдать игровой ранг
+/role [@username] [0/8/9/10] - Сменить модераторскую роль
 /giveaccess [@username] [8-10] - Выдать доступ
 /nlist - Список участников
 /grole [@username] [0-10] - Игровая роль
-/roles - Все роли
+/roles - Все модераторские роли
 /all - Призвать всех
 
 📜 *ПРАВИЛА:*
@@ -458,18 +459,18 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /checkmutes - Активные муты
 /checkbans - Активные баны
 /checkweddings - Активные свадьбы
-/sql [запрос] - Выполнить SQL
+/sql [запрос] - Выполнить SQL запрос
 
 ⭐ *УПРАВЛЕНИЕ РЕПУТАЦИЕЙ:*
 /takerep [@username] [кол-во] - Забрать репутацию
 /resetrep [@username] - Сбросить репутацию
 
 👤 *УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ:*
-/resetuser [@username] - Полный сброс
+/resetuser [@username] - Полный сброс пользователя
 
 🔧 *СИСТЕМНЫЕ:*
 /creator - Панель создателя
-/stats - Статистика
+/stats - Статистика бота
 /clearlogs - Очистить логи
 """
         help_text += creator_section
@@ -1037,17 +1038,150 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
     await update.message.reply_text("❌ Не найден")
 
-# ========== КОМАНДЫ СОЗДАТЕЛЯ ==========
+# ========== БЭКАП ==========
 async def backup_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
-        await update.message.reply_text("⛔ Только для создателя!")
+        await update.message.reply_text("⛔ Только для админов!")
         return
+    
     backup_text = get_full_backup_text()
     bio = io.BytesIO(backup_text.encode('utf-8'))
     bio.name = f"nevermore_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
     await update.message.reply_document(document=bio, caption="📦 *Бэкап базы данных*", parse_mode=ParseMode.MARKDOWN)
     add_log(update.effective_user.id, "backup_db")
 
+# ========== КНОПКИ ==========
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    data = q.data
+    
+    if data == "rules":
+        await rules(update, context)
+    elif data == "profile":
+        await profile(update, context)
+    elif data == "top":
+        await top(update, context)
+    elif data == "weddings":
+        await weddings_list(update, context)
+    elif data == "help":  # <--- ЭТО ДОБАВИТЬ
+        await help_command(update, context)
+    elif data.startswith("rep_"):
+        await q.answer("Голос учтён")
+    elif data.startswith("wed_accept"):
+        parts = data.split("_")
+        u1, u2 = int(parts[2]), int(parts[3])
+        key = f"{u1}_{u2}"
+        if key in pending_weddings:
+            add_wedding(u1, u2)
+            await q.message.edit_text("💍 *ПОЗДРАВЛЯЕМ!* Брак заключен! 🎉", parse_mode=ParseMode.MARKDOWN)
+            del pending_weddings[key]
+    elif data.startswith("wed_decline"):
+        await q.message.edit_text("💔 Брак отклонен!", parse_mode=ParseMode.MARKDOWN)
+
+# ========== АВТОРИЗАЦИЯ ==========
+async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
+    if not message or not message.text:
+        return
+    text = message.text.strip()
+    if not any(kw in text for kw in ['Никнейм:', 'Ник:', 'Нижнейм:']):
+        return
+    
+    lines = text.split('\n')
+    nickname = None
+    rank = None
+    for line in lines:
+        line = line.strip()
+        if line.startswith('Никнейм:') or line.startswith('Ник:') or line.startswith('Нижнейм:'):
+            nickname = line.split(':', 1)[1].strip()
+        elif line.startswith('Ранг:') or line.startswith('Парт:'):
+            try:
+                rank = int(line.split(':', 1)[1].strip())
+            except:
+                pass
+    
+    if not nickname or not rank:
+        await message.reply_text("❌ *Неверный формат!*\nИспользуйте:\nНикнейм: ваш_ник\nРанг: 5", parse_mode=ParseMode.MARKDOWN)
+        return
+    if ' ' in nickname or len(nickname) < 3 or len(nickname) > 30:
+        await message.reply_text("❌ Никнейм должен быть 3-30 символов без пробелов!")
+        return
+    if rank < 2 or rank > 10:
+        await message.reply_text("❌ Ранг должен быть от 2 до 10!")
+        return
+    
+    u = get_user(message.from_user.id)
+    if u and u.get("nickname"):
+        await message.reply_text(f"❌ Вы уже авторизованы! Ваш ник: {u['nickname']}")
+        return
+    
+    for existing_user in get_all_users():
+        if existing_user.get("nickname") and existing_user["nickname"].lower() == nickname.lower():
+            await message.reply_text(f"❌ Никнейм `{nickname}` уже занят!", parse_mode=ParseMode.MARKDOWN)
+            return
+    
+    add_user(message.from_user)
+    update_user(message.from_user.id, "nickname", nickname)
+    update_user(message.from_user.id, "role", rank)
+    await message.reply_text(f"✅ *АВТОРИЗАЦИЯ УСПЕШНА!*\n👤 Ваш ник: {nickname}\n🎮 Ранг: {get_rank_name(rank)}", parse_mode=ParseMode.MARKDOWN)
+    add_log(message.from_user.id, "auto_auth", reason=f"{nickname} ({rank})")
+    try:
+        await message.delete()
+    except:
+        pass
+
+# ========== ПРИВЕТСТВИЕ ==========
+async def welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    for m in update.message.new_chat_members:
+        if m.is_bot:
+            continue
+        add_user(m)
+        text = f"""👋 *@{m.username or m.first_name}*, добро пожаловать в *FAM {FAMILY_NAME}*!
+
+📝 Напиши свой ник в авторизацию в течение 24 часов, иначе кик.
+📖 Правила: {RULES_LINK}
+🔑 Авторизация: {AUTH_LINK}
+
+*Приятного общения!* ❤️"""
+        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+# ========== ОБРАБОТКА СООБЩЕНИЙ ==========
+async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.text:
+        return
+    if update.message.text.startswith('/'):
+        return
+    
+    user = update.effective_user
+    text = update.message.text
+    
+    violations = check_rule_violation(text)
+    for v in violations:
+        add_mute(user.id, v[1], f"Нарушение: {v[0]}", 0)
+        try:
+            await update.message.delete()
+            await update.message.reply_text(f"🔇 {user.first_name}, нарушение правил! Мут {v[1]} минут.")
+        except:
+            pass
+        return
+    
+    if is_banned(user.id):
+        try:
+            await update.message.delete()
+        except:
+            pass
+        return
+    
+    if is_muted(user.id):
+        try:
+            await update.message.delete()
+        except:
+            pass
+        return
+    
+    add_user(user)
+
+# ========== КОМАНДЫ ДЛЯ СОЗДАТЕЛЯ ==========
 async def check_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
         await update.message.reply_text("⛔ Только для создателя!")
@@ -1242,136 +1376,32 @@ async def creator_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """
     await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
-# ========== КНОПКИ ==========
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    data = q.data
-    
-    if data == "rules":
-        await rules(update, context)
-    elif data == "profile":
-        await profile(update, context)
-    elif data == "top":
-        await top(update, context)
-    elif data == "weddings":
-        await weddings_list(update, context)
-    elif data == "help":
-        await help_command(update, context)
-    elif data.startswith("rep_"):
-        await q.answer("Голос учтён")
-    elif data.startswith("wed_accept"):
-        parts = data.split("_")
-        u1, u2 = int(parts[2]), int(parts[3])
-        key = f"{u1}_{u2}"
-        if key in pending_weddings:
-            add_wedding(u1, u2)
-            await q.message.edit_text("💍 *ПОЗДРАВЛЯЕМ!* Брак заключен! 🎉", parse_mode=ParseMode.MARKDOWN)
-            del pending_weddings[key]
-    elif data.startswith("wed_decline"):
-        await q.message.edit_text("💔 Брак отклонен!", parse_mode=ParseMode.MARKDOWN)
+# ... все функции ...
 
-# ========== АВТОРИЗАЦИЯ ==========
-async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.message
-    if not message or not message.text:
-        return
-    text = message.text.strip()
-    if not any(kw in text for kw in ['Никнейм:', 'Ник:', 'Нижнейм:']):
-        return
+# ========== ВЕБ-СЕРВЕР ДЛЯ RENDER ==========
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+import json
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'<h1>Nevermore Bot is running!</h1>')
     
-    lines = text.split('\n')
-    nickname = None
-    rank = None
-    for line in lines:
-        line = line.strip()
-        if line.startswith('Никнейм:') or line.startswith('Ник:') or line.startswith('Нижнейм:'):
-            nickname = line.split(':', 1)[1].strip()
-        elif line.startswith('Ранг:') or line.startswith('Парт:'):
-            try:
-                rank = int(line.split(':', 1)[1].strip())
-            except:
-                pass
-    
-    if not nickname or not rank:
-        await message.reply_text("❌ *Неверный формат!*\nИспользуйте:\nНикнейм: ваш_ник\nРанг: 5", parse_mode=ParseMode.MARKDOWN)
-        return
-    if ' ' in nickname or len(nickname) < 3 or len(nickname) > 30:
-        await message.reply_text("❌ Никнейм должен быть 3-30 символов без пробелов!")
-        return
-    if rank < 2 or rank > 10:
-        await message.reply_text("❌ Ранг должен быть от 2 до 10!")
-        return
-    
-    u = get_user(message.from_user.id)
-    if u and u.get("nickname"):
-        await message.reply_text(f"❌ Вы уже авторизованы! Ваш ник: {u['nickname']}")
-        return
-    
-    for existing_user in get_all_users():
-        if existing_user.get("nickname") and existing_user["nickname"].lower() == nickname.lower():
-            await message.reply_text(f"❌ Никнейм `{nickname}` уже занят!", parse_mode=ParseMode.MARKDOWN)
-            return
-    
-    add_user(message.from_user)
-    update_user(message.from_user.id, "nickname", nickname)
-    update_user(message.from_user.id, "role", rank)
-    await message.reply_text(f"✅ *АВТОРИЗАЦИЯ УСПЕШНА!*\n👤 Ваш ник: {nickname}\n🎮 Ранг: {get_rank_name(rank)}", parse_mode=ParseMode.MARKDOWN)
-    add_log(message.from_user.id, "auto_auth", reason=f"{nickname} ({rank})")
-    try:
-        await message.delete()
-    except:
+    def log_message(self, format, *args):
         pass
 
-# ========== ПРИВЕТСТВИЕ ==========
-async def welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    for m in update.message.new_chat_members:
-        if m.is_bot:
-            continue
-        add_user(m)
-        text = f"""👋 *@{m.username or m.first_name}*, добро пожаловать в *FAM {FAMILY_NAME}*!
+def run_web_server():
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthHandler)
+    print(f"✅ Веб-сервер запущен на порту {port}")
+    server.serve_forever()
 
-📝 Напиши свой ник в авторизацию в течение 24 часов, иначе кик.
-📖 Правила: {RULES_LINK}
-🔑 Авторизация: {AUTH_LINK}
-
-*Приятного общения!* ❤️"""
-        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
-
-# ========== ОБРАБОТКА СООБЩЕНИЙ ==========
-async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
-        return
-    if update.message.text.startswith('/'):
-        return
-    
-    user = update.effective_user
-    text = update.message.text
-    
-    violations = check_rule_violation(text)
-    for v in violations:
-        add_mute(user.id, v[1], f"Нарушение: {v[0]}", 0)
-        try:
-            await update.message.delete()
-            await update.message.reply_text(f"🔇 {user.first_name}, нарушение правил! Мут {v[1]} минут.")
-        except:
-            pass
-        return
-    
-    if is_banned(user.id):
-        try:
-            await update.message.delete()
-        except:
-            pass
-        return
-    
-    if is_muted(user.id):
-        try:
-            await update.message.delete()
-        except:
-            pass
-        return
-    
-    add_user(user)
+# Запускаем веб-сервер в отдельном потоке
+web_thread = threading.Thread(target=run_web_server, daemon=True)
+web_thread.start()
 
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
@@ -1426,17 +1456,6 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("online", online))
     app.add_handler(CommandHandler("check", check))
     app.add_handler(CommandHandler("backupdb", backup_db))
-    app.add_handler(CommandHandler("creator", creator_panel))
-    app.add_handler(CommandHandler("checkdb", check_db))
-    app.add_handler(CommandHandler("checkmutes", check_mutes))
-    app.add_handler(CommandHandler("checkbans", check_bans))
-    app.add_handler(CommandHandler("checkweddings", check_weddings))
-    app.add_handler(CommandHandler("sql", sql_query))
-    app.add_handler(CommandHandler("takerep", take_rep))
-    app.add_handler(CommandHandler("resetrep", reset_rep))
-    app.add_handler(CommandHandler("resetuser", reset_user))
-    app.add_handler(CommandHandler("stats", stats))
-    app.add_handler(CommandHandler("clearlogs", clear_logs))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_auth))
     app.add_handler(CallbackQueryHandler(button_callback))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
