@@ -321,12 +321,71 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user(user)
     add_log(user.id, "start")
     u = get_user(user.id)
-    keyboard = [[InlineKeyboardButton("📜 Правила", callback_data="rules")]]
+    
+    # Определяем статус пользователя
+    status_emoji = "👤"
+    if u.get("mod_role") == 10:
+        status_emoji = "👑"
+    elif u.get("mod_role") == 9:
+        status_emoji = "⚔️"
+    elif u.get("mod_role") == 8:
+        status_emoji = "🛡️"
+    
+    # Текст приветствия
+    welcome_text = f"""
+╔══════════════════════════════════╗
+║   🔥 *FAM {FAMILY_NAME}* 🔥   ║
+╚══════════════════════════════════╝
+
+{status_emoji} *Привет, {user.first_name}!*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎮 *ТВОЙ ПРОФИЛЬ:*
+┌─────────────────────────────┐
+│ 👤 Имя: {user.first_name}
+│ 🎮 Ранг: {get_rank_emoji(u['role'])} *{get_rank_name(u['role'])}*
+│ ⭐ Репутация: {u['rep']}
+│ 💬 Сообщений: {u['msgs']}
+│ ⚠️ Варны: {u['warns']}/3
+└─────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 *ЧТО ДАЛЬШЕ?*
+
+🔹 *Авторизация* — отправь сообщение:
+   `Никнейм: твой_ник`
+   `Ранг: 5`
+
+🔹 *Команды* — используй /help
+
+🔹 *Правила* — /rules
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Добро пожаловать в семью!* ❤️
+"""
+    
+    # Клавиатура
+    keyboard = [
+        [InlineKeyboardButton("📜 Правила", callback_data="rules"),
+         InlineKeyboardButton("👤 Профиль", callback_data="profile")],
+        [InlineKeyboardButton("⭐ Топ месяца", callback_data="top"),
+         InlineKeyboardButton("💍 Свадьбы", callback_data="weddings")],
+        [InlineKeyboardButton("❓ Помощь", callback_data="help")]
+    ]
+    
     await update.message.reply_text(
-        f"🔥 *ДОБРО ПОЖАЛОВАТЬ В FAM {FAMILY_NAME}!* 🔥\n\nПривет, {user.first_name}!\n🎮 Ранг: {get_rank_emoji(u['role'])} *{get_rank_name(u['role'])}*\n⭐ Репутация: {u['rep']}",
-        parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
+        welcome_text,
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    is_creator = user_id in ADMINS
+    
     help_text = """
 🔥 *FAM NEVERMORE - КОМАНДЫ* 🔥
 
@@ -344,14 +403,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /minus [reply] - -1 репутации
 
 🎮 *РАЗВЛЕЧЕНИЯ:*
-/kiss [reply] - Поцеловать
-/hug [reply] - Обнять
-/slap [reply] - Ударить
+/kiss [reply] - Поцеловать 💋
+/hug [reply] - Обнять 🤗
+/slap [reply] - Ударить 👋
 /me [действие] - Описать действие
-/try [действие] - Попытать удачу
-/gay - Гей дня
-/clown - Клоун дня
-/wish - Предсказание
+/try [действие] - Попытать удачу 🎯
+/gay - Гей дня 🏳️‍🌈
+/clown - Клоун дня 🤡
+/wish - Предсказание ✨
 
 📊 *СТАТИСТИКА:*
 /top - Топ месяца
@@ -359,28 +418,28 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /check [@username] - Проверить игрока
 
 🔨 *МОДЕРАЦИЯ (роль 8+):*
-/warn [reply] - Предупреждение
+/warn [reply] [причина] - Предупреждение
 /unwarn [@username] - Снять варн
 /mute [reply] [время] - Замутить
 /unmute [reply] - Размутить
-/ban [reply] - Забанить
+/ban [reply] [причина] - Забанить
 /unban [@username] - Разбанить
-/warns [@username] - Варны
-/bans - Список банов
-/mutelist - Список мутов
-/logs - Логи
+/warns [@username] - Варны пользователя
+/bans - Список забаненных
+/mutelist - Список замученных
+/logs - Логи действий
 /clear [кол-во] - Очистить чат
 /report [текст] - Пожаловаться
 /setname [@username] [ник] - Установить ник
-/setprefix [@username] [префикс] - Префикс
+/setprefix [@username] [префикс] - Установить префикс
 
 👑 *АДМИНИСТРИРОВАНИЕ (роль 9-10):*
-/setrole [@username] [2-10] - Выдать роль
-/role [@username] [0-10] - Сменить роль
+/setrole [@username] [2-10] - Выдать игровой ранг
+/role [@username] [0/8/9/10] - Сменить модераторскую роль
 /giveaccess [@username] [8-10] - Выдать доступ
 /nlist - Список участников
 /grole [@username] [0-10] - Игровая роль
-/roles - Все роли
+/roles - Все модераторские роли
 /all - Призвать всех
 
 📜 *ПРАВИЛА:*
@@ -389,6 +448,33 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 💾 *БЭКАП:*
 /backupdb - Скачать базу данных
 """
+    
+    if is_creator:
+        creator_section = """
+
+👑 *ДЛЯ СОЗДАТЕЛЯ* 👑
+
+📊 *УПРАВЛЕНИЕ БАЗОЙ ДАННЫХ:*
+/checkdb - Все пользователи
+/checkmutes - Активные муты
+/checkbans - Активные баны
+/checkweddings - Активные свадьбы
+/sql [запрос] - Выполнить SQL запрос
+
+⭐ *УПРАВЛЕНИЕ РЕПУТАЦИЕЙ:*
+/takerep [@username] [кол-во] - Забрать репутацию
+/resetrep [@username] - Сбросить репутацию
+
+👤 *УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ:*
+/resetuser [@username] - Полный сброс пользователя
+
+🔧 *СИСТЕМНЫЕ:*
+/creator - Панель создателя
+/stats - Статистика бота
+/clearlogs - Очистить логи
+"""
+        help_text += creator_section
+    
     await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
 
 async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -968,8 +1054,17 @@ async def backup_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     data = q.data
+    
     if data == "rules":
         await rules(update, context)
+    elif data == "profile":
+        await profile(update, context)
+    elif data == "top":
+        await top(update, context)
+    elif data == "weddings":
+        await weddings_list(update, context)
+    elif data == "help":  # <--- ЭТО ДОБАВИТЬ
+        await help_command(update, context)
     elif data.startswith("rep_"):
         await q.answer("Голос учтён")
     elif data.startswith("wed_accept"):
