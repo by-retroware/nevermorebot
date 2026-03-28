@@ -2854,17 +2854,9 @@ if __name__ == "__main__":
     app.add_handler(CallbackQueryHandler(button_callback))
     print("  ✓ all_messages, button_callback")
     
-    print("4️⃣ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
+       print("4️⃣ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
     print("✅ БОТ ГОТОВ К ЗАПУСКУ! 🔥 FAM NEVERMORE ONLINE!")
     
     # ========== ЗАПУСК БОТА ==========
-    print("🔄 Проверяю вебхук...")
-    # Создаём новый цикл событий для сброса
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(app.bot.delete_webhook(drop_pending_updates=True))
-    loop.close()
-    print("✅ Вебхук удалён")
-    
     print("🔄 Запускаю polling...")
     app.run_polling()
