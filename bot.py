@@ -6,29 +6,14 @@ import time
 import threading
 import sys
 import logging
-import json
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
-import asyncpg  # ← исправлено!
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import asyncpg
 
 # ========== НАСТРОЙКА ==========
 logging.basicConfig(level=logging.INFO)
-
-# ========== ФОРСИРОВАННЫЙ ЗАПУСК ВЕБ-СЕРВЕРА ==========
-PORT = int(os.getenv("PORT", 10000))
-
-# Включаем обработку команд в группах
-class CustomApplication(Application):
-    """Кастомное приложение для работы в группах"""
-    pass
-
-# Функция для проверки, что сообщение из группы
-def is_group(update: Update) -> bool:
-    """Проверяет, пришло ли сообщение из группы"""
-    return update.effective_chat and update.effective_chat.type in ['group', 'supergroup']
 
 # ========== КОНФИГ ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8768445585:AAExC6USUKw7zXyqrlJNtq7Nc91wjMm3S2Q")
@@ -1863,57 +1848,6 @@ async def auto_auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("✅ Сообщение удалено")
     except:
         print("⚠️ Не удалось удалить сообщение")
-
-# ========== ВЕБ-СЕРВЕР ДЛЯ RENDER ==========
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import json
-
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == '/health' or self.path == '/ping':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "ok", "bot": "Nevermore Bot"}).encode())
-        elif self.path == '/':
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-            self.wfile.write(b'<h1>Nevermore Bot is running!</h1>')
-        else:
-            self.send_response(404)
-            self.end_headers()
-    
-    def log_message(self, format, *args):
-        pass
-
-def start_web_server():
-    port = int(os.getenv("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), HealthHandler)
-    print(f"✅ Веб-сервер запущен на порту {port}")
-    server.serve_forever()
-
-# Запускаем веб-сервер в отдельном потоке
-web_thread = threading.Thread(target=start_web_server, daemon=False)
-web_thread.start()
-
-# Даём серверу время запуститься
-time.sleep(2)
-
-# Проверяем, что порт открыт
-try:
-    import socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    result = sock.connect_ex(('127.0.0.1', int(os.getenv("PORT", 10000))))
-    if result == 0:
-        print(f"✅ Порт {os.getenv('PORT', 10000)} успешно открыт")
-    else:
-        print(f"⚠️ Порт {os.getenv('PORT', 10000)} не открыт")
-    sock.close()
-except Exception as e:
-    print(f"⚠️ Не удалось проверить порт: {e}")
-
-print("✅ Веб-сервер успешно настроен")
 
 # ========== ПРОСМОТР БАЗЫ ДАННЫХ ==========
 async def check_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
