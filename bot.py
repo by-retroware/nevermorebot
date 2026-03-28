@@ -40,10 +40,8 @@ async def get_db():
 
 def init_db():
     print("✅ База данных PostgreSQL готова (таблицы созданы в Supabase)")
-   
-# ========== ФУНКЦИИ БД ==========
-# ========== ФУНКЦИИ БД ==========
 
+# ========== ФУНКЦИИ БД ==========
 def get_user(user_id):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
