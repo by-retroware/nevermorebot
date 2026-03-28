@@ -2854,3 +2854,9 @@ if __name__ == "__main__":
     
     print("4️⃣ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
     print("✅ БОТ ГОТОВ К ЗАПУСКУ! 🔥 FAM NEVERMORE ONLINE!")
+        print("4️⃣ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
+    print("✅ БОТ ГОТОВ К ЗАПУСКУ! 🔥 FAM NEVERMORE ONLINE!")
+    
+    # ========== ЗАПУСК БОТА ==========
+    print("🔄 Запускаю polling...")
+    app.run_polling()
