@@ -29,7 +29,7 @@ def is_group(update: Update) -> bool:
     return update.effective_chat and update.effective_chat.type in ['group', 'supergroup']
 
 # ========== КОНФИГ ==========
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8768445585:AAHzkCok9liE_sottsWDdTKqSu1jYTzDErA")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
 ADMINS = {int(x) for x in os.getenv("ADMINS", "5695593671,1784442476").split(",")}
 FAMILY_NAME = "Nevermore"
