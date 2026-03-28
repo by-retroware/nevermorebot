@@ -2858,5 +2858,10 @@ if __name__ == "__main__":
     print("✅ БОТ ГОТОВ К ЗАПУСКУ! 🔥 FAM NEVERMORE ONLINE!")
     
     # ========== ЗАПУСК БОТА ==========
+    print("🔄 Удаляю вебхук...")
+    import asyncio
+    asyncio.run(app.bot.delete_webhook(drop_pending_updates=True))
+    print("✅ Вебхук удалён")
+    
     print("🔄 Запускаю polling...")
     app.run_polling()
