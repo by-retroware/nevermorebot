@@ -9,6 +9,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 # ========== НАСТРОЙКА ДЛЯ РАБОТЫ В ГРУППЕ ==========
 import logging
+import asyncpg
 logging.basicConfig(level=logging.INFO)
 
 # Включаем обработку команд в группах
@@ -23,6 +24,7 @@ def is_group(update: Update) -> bool:
 
 # ========== КОНФИГ ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8768445585:AAHzkCok9liE_sottsWDdTKqSu1jYTzDErA")
+DATABASE_URL = os.getenv("DATABASE_URL")
 ADMINS = {int(x) for x in os.getenv("ADMINS", "5695593671,1784442476").split(",")}
 FAMILY_NAME = "Nevermore"
 FAMILY_LINK = "https://t.me/famnevermore"
@@ -31,238 +33,251 @@ RULES_LINK = "https://t.me/famnevermore/26"
 NEWS_LINK = "https://t.me/famnevermore/5"
 
 # ========== БАЗА ДАННЫХ ==========
-def get_db():
-    conn = sqlite3.connect('data.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+import asyncpg
+
+async def get_db():
+    return await asyncpg.connect(DATABASE_URL)
 
 def init_db():
-    conn = get_db()
-    c = conn.cursor()
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            name TEXT,
-            username TEXT,
-            nickname TEXT,
-            role INTEGER DEFAULT 2,
-            warns INTEGER DEFAULT 0,
-            rep INTEGER DEFAULT 0,
-            spouse_id INTEGER,
-            prefix TEXT,
-            last_online TEXT,
-            msgs INTEGER DEFAULT 0,
-            joined TEXT,
-            mod_role INTEGER,
-            monthly_msgs INTEGER DEFAULT 0
-        )
-    ''')
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS mutes (
-            user_id INTEGER PRIMARY KEY,
-            until TEXT,
-            reason TEXT,
-            moderator_id INTEGER
-        )
-    ''')
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS bans (
-            user_id INTEGER PRIMARY KEY,
-            until TEXT,
-            reason TEXT,
-            moderator_id INTEGER
-        )
-    ''')
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS weddings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user1 INTEGER,
-            user2 INTEGER,
-            date TEXT,
-            divorced INTEGER DEFAULT 0
-        )
-    ''')
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            action TEXT,
-            target INTEGER,
-            reason TEXT,
-            time TEXT
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
-    print("✅ База данных создана")
-
+    print("✅ База данных PostgreSQL готова (таблицы созданы в Supabase)"):
+   
 # ========== ФУНКЦИИ БД ==========
+# ========== ФУНКЦИИ БД ==========
+
 def get_user(user_id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-    row = c.fetchone()
-    conn.close()
-    return row
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_get_user(user_id))
+
+async def _get_user(user_id):
+    conn = await get_db()
+    row = await conn.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
+    await conn.close()
+    return dict(row) if row else None
 
 def add_user(user):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('''
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_add_user(user))
+
+async def _add_user(user):
+    conn = await get_db()
+    now = datetime.now().isoformat()
+    await conn.execute("""
         INSERT INTO users (user_id, name, username, last_online, joined, monthly_msgs)
-        VALUES (?, ?, ?, ?, ?, 0)
-        ON CONFLICT(user_id) DO UPDATE SET
-            name = excluded.name,
-            username = excluded.username,
-            last_online = excluded.last_online,
-            msgs = msgs + 1,
-            monthly_msgs = monthly_msgs + 1
-    ''', (user.id, user.first_name, user.username, datetime.now().isoformat(), datetime.now().isoformat()))
-    conn.commit()
-    conn.close()
+        VALUES ($1, $2, $3, $4, $5, 0)
+        ON CONFLICT (user_id) DO UPDATE SET
+            name = EXCLUDED.name,
+            username = EXCLUDED.username,
+            last_online = EXCLUDED.last_online,
+            msgs = users.msgs + 1,
+            monthly_msgs = users.monthly_msgs + 1
+    """, user.id, user.first_name, user.username, now, now)
+    await conn.close()
 
 def update_user(user_id, field, value):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute(f"UPDATE users SET {field} = ? WHERE user_id = ?", (value, user_id))
-    conn.commit()
-    conn.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_update_user(user_id, field, value))
+
+async def _update_user(user_id, field, value):
+    conn = await get_db()
+    await conn.execute(f"UPDATE users SET {field} = $1 WHERE user_id = $2", value, user_id)
+    await conn.close()
 
 def add_log(user_id, action, target=None, reason=None):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("INSERT INTO logs (user_id, action, target, reason, time) VALUES (?, ?, ?, ?, ?)",
-              (user_id, action, target, reason, datetime.now().isoformat()))
-    conn.commit()
-    conn.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_add_log(user_id, action, target, reason))
+
+async def _add_log(user_id, action, target, reason):
+    conn = await get_db()
+    await conn.execute(
+        "INSERT INTO logs (user_id, action, target, reason, time) VALUES ($1, $2, $3, $4, $5)",
+        user_id, action, target, reason, datetime.now().isoformat()
+    )
+    await conn.close()
 
 def get_all_users():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT * FROM users")
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_get_all_users())
+
+async def _get_all_users():
+    conn = await get_db()
+    rows = await conn.fetch("SELECT * FROM users")
+    await conn.close()
+    return [dict(row) for row in rows]
 
 def get_active_weddings():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT * FROM weddings WHERE divorced = 0")
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_get_active_weddings())
+
+async def _get_active_weddings():
+    conn = await get_db()
+    rows = await conn.fetch("SELECT * FROM weddings WHERE divorced = 0")
+    await conn.close()
+    return [dict(row) for row in rows]
 
 def add_wedding(u1, u2):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("INSERT INTO weddings (user1, user2, date) VALUES (?, ?, ?)",
-              (u1, u2, datetime.now().isoformat()))
-    c.execute("UPDATE users SET spouse_id = ? WHERE user_id = ?", (u2, u1))
-    c.execute("UPDATE users SET spouse_id = ? WHERE user_id = ?", (u1, u2))
-    conn.commit()
-    conn.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_add_wedding(u1, u2))
+
+async def _add_wedding(u1, u2):
+    conn = await get_db()
+    await conn.execute(
+        "INSERT INTO weddings (user1, user2, date) VALUES ($1, $2, $3)",
+        u1, u2, datetime.now().isoformat()
+    )
+    await conn.execute("UPDATE users SET spouse_id = $1 WHERE user_id = $2", u2, u1)
+    await conn.execute("UPDATE users SET spouse_id = $1 WHERE user_id = $2", u1, u2)
+    await conn.close()
 
 def divorce_wedding(user_id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT spouse_id FROM users WHERE user_id = ?", (user_id,))
-    row = c.fetchone()
-    if row and row[0]:
-        spouse = row[0]
-        c.execute("UPDATE weddings SET divorced = 1 WHERE (user1 = ? OR user2 = ?) AND divorced = 0", (user_id, user_id))
-        c.execute("UPDATE users SET spouse_id = NULL WHERE user_id = ?", (user_id,))
-        c.execute("UPDATE users SET spouse_id = NULL WHERE user_id = ?", (spouse,))
-        conn.commit()
-        conn.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_divorce_wedding(user_id))
+
+async def _divorce_wedding(user_id):
+    conn = await get_db()
+    row = await conn.fetchrow("SELECT spouse_id FROM users WHERE user_id = $1", user_id)
+    if row and row["spouse_id"]:
+        spouse = row["spouse_id"]
+        await conn.execute(
+            "UPDATE weddings SET divorced = 1 WHERE (user1 = $1 OR user2 = $1) AND divorced = 0",
+            user_id
+        )
+        await conn.execute("UPDATE users SET spouse_id = NULL WHERE user_id = $1", user_id)
+        await conn.execute("UPDATE users SET spouse_id = NULL WHERE user_id = $1", spouse)
+        await conn.close()
         return spouse
-    conn.close()
+    await conn.close()
     return None
 
 def add_mute(user_id, minutes, reason, mod_id):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_add_mute(user_id, minutes, reason, mod_id))
+
+async def _add_mute(user_id, minutes, reason, mod_id):
     until = (datetime.now() + timedelta(minutes=minutes)).isoformat()
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO mutes (user_id, until, reason, moderator_id) VALUES (?, ?, ?, ?)",
-              (user_id, until, reason, mod_id))
-    conn.commit()
-    conn.close()
+    conn = await get_db()
+    await conn.execute(
+        "INSERT INTO mutes (user_id, until, reason, moderator_id) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET until = $2, reason = $3, moderator_id = $4",
+        user_id, until, reason, mod_id
+    )
+    await conn.close()
 
 def remove_mute(user_id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("DELETE FROM mutes WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_remove_mute(user_id))
+
+async def _remove_mute(user_id):
+    conn = await get_db()
+    await conn.execute("DELETE FROM mutes WHERE user_id = $1", user_id)
+    await conn.close()
 
 def is_muted(user_id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT until FROM mutes WHERE user_id = ? AND until > ?", (user_id, datetime.now().isoformat()))
-    row = c.fetchone()
-    conn.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_is_muted(user_id))
+
+async def _is_muted(user_id):
+    conn = await get_db()
+    row = await conn.fetchrow(
+        "SELECT until FROM mutes WHERE user_id = $1 AND until > $2",
+        user_id, datetime.now().isoformat()
+    )
+    await conn.close()
     return row is not None
 
 def add_ban(user_id, days, reason, mod_id):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_add_ban(user_id, days, reason, mod_id))
+
+async def _add_ban(user_id, days, reason, mod_id):
     until = (datetime.now() + timedelta(days=days)).isoformat()
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO bans (user_id, until, reason, moderator_id) VALUES (?, ?, ?, ?)",
-              (user_id, until, reason, mod_id))
-    conn.commit()
-    conn.close()
+    conn = await get_db()
+    await conn.execute(
+        "INSERT INTO bans (user_id, until, reason, moderator_id) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET until = $2, reason = $3, moderator_id = $4",
+        user_id, until, reason, mod_id
+    )
+    await conn.close()
 
 def remove_ban(user_id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("DELETE FROM bans WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_remove_ban(user_id))
+
+async def _remove_ban(user_id):
+    conn = await get_db()
+    await conn.execute("DELETE FROM bans WHERE user_id = $1", user_id)
+    await conn.close()
 
 def is_banned(user_id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT until FROM bans WHERE user_id = ? AND until > ?", (user_id, datetime.now().isoformat()))
-    row = c.fetchone()
-    conn.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_is_banned(user_id))
+
+async def _is_banned(user_id):
+    conn = await get_db()
+    row = await conn.fetchrow(
+        "SELECT until FROM bans WHERE user_id = $1 AND until > $2",
+        user_id, datetime.now().isoformat()
+    )
+    await conn.close()
     return row is not None
 
 def get_bans_list():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT * FROM bans WHERE until > ?", (datetime.now().isoformat(),))
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_get_bans_list())
+
+async def _get_bans_list():
+    conn = await get_db()
+    rows = await conn.fetch(
+        "SELECT * FROM bans WHERE until > $1", datetime.now().isoformat()
+    )
+    await conn.close()
+    return [dict(row) for row in rows]
 
 def get_mutes_list():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT * FROM mutes WHERE until > ?", (datetime.now().isoformat(),))
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_get_mutes_list())
+
+async def _get_mutes_list():
+    conn = await get_db()
+    rows = await conn.fetch(
+        "SELECT * FROM mutes WHERE until > $1", datetime.now().isoformat()
+    )
+    await conn.close()
+    return [dict(row) for row in rows]
 
 def get_logs(limit=15):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT * FROM logs ORDER BY id DESC LIMIT ?", (limit,))
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_get_logs(limit))
+
+async def _get_logs(limit):
+    conn = await get_db()
+    rows = await conn.fetch("SELECT * FROM logs ORDER BY id DESC LIMIT $1", limit)
+    await conn.close()
+    return [dict(row) for row in rows]
 
 def reset_monthly_stats():
-    """Сброс ежемесячной статистики в конце месяца"""
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("UPDATE users SET monthly_msgs = 0")
-    conn.commit()
-    conn.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(_reset_monthly_stats())
+
+async def _reset_monthly_stats():
+    conn = await get_db()
+    await conn.execute("UPDATE users SET monthly_msgs = 0")
+    await conn.close()
 
 # ========== РАНГИ ==========
 game_ranks = {
@@ -2040,16 +2055,10 @@ async def check_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ Нет прав! Только владелец!")
         return
     
-    conn = get_db()
-    c = conn.cursor()
-    
-    # Получаем всех пользователей
-    c.execute("SELECT user_id, name, username, nickname, role, rep, mod_role FROM users")
-    users = c.fetchall()
+    users = get_all_users()
     
     if not users:
         await update.message.reply_text("📋 База данных пуста")
-        conn.close()
         return
     
     text = "📊 *БАЗА ДАННЫХ - ВСЕ ПОЛЬЗОВАТЕЛИ*\n\n"
@@ -2070,10 +2079,7 @@ async def check_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += "\n... и другие"
             break
     
-    # Статистика
     text += f"\n📊 *Всего:* {len(users)} пользователей"
-    
-    conn.close()
     await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
 async def check_mutes(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2184,7 +2190,6 @@ async def edit_nick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     u = get_user(user_id)
     
-    # Проверяем роль 9 или 10
     if user_id not in ADMINS and (not u or u["mod_role"] not in [9, 10]):
         await update.message.reply_text("⛔ Нет прав! Требуется роль 9+")
         return
@@ -2205,7 +2210,7 @@ async def edit_nick(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Пользователь не найден!")
         return
     
-    # Проверка на уникальность ника
+    # Проверка на уникальность
     existing = None
     for existing_user in get_all_users():
         if existing_user["nickname"] and existing_user["nickname"].lower() == new_nick.lower() and existing_user["user_id"] != uid:
