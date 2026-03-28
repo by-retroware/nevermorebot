@@ -39,7 +39,7 @@ async def get_db():
     return await asyncpg.connect(DATABASE_URL)
 
 def init_db():
-    print("✅ База данных PostgreSQL готова (таблицы созданы в Supabase)"):
+    print("✅ База данных PostgreSQL готова (таблицы созданы в Supabase)")
    
 # ========== ФУНКЦИИ БД ==========
 # ========== ФУНКЦИИ БД ==========
