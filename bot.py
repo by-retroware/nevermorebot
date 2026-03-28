@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 # ========== КОНФИГ ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMINS = {int(x) for x in os.getenv("ADMINS", "5695593671,1784442476").split(",")}
-BACKUP_CHANNEL_ID = int(os.getenv("BACKUP_CHANNEL_ID", "-1003613005281"))
+BACKUP_CHANNEL_ID = -1003613005281
 FAMILY_NAME = "Nevermore"
 FAMILY_LINK = "https://t.me/famnevermore"
 AUTH_LINK = "https://t.me/famnevermore/19467"
