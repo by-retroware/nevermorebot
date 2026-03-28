@@ -16,6 +16,7 @@ logging.basicConfig(level=logging.INFO)
 # ========== КОНФИГ ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMINS = {int(x) for x in os.getenv("ADMINS", "5695593671,1784442476").split(",")}
+BACKUP_CHANNEL_ID = int(os.getenv("BACKUP_CHANNEL_ID", "-1003613005281"))
 FAMILY_NAME = "Nevermore"
 FAMILY_LINK = "https://t.me/famnevermore"
 AUTH_LINK = "https://t.me/famnevermore/19467"
@@ -231,12 +232,19 @@ def get_logs(limit=15):
     conn.close()
     return [dict(zip(['id', 'user_id', 'action', 'target', 'reason', 'time'], row)) for row in rows]
 
-def reset_monthly_stats():
+def get_full_backup_text():
     conn = get_db()
     c = conn.cursor()
-    c.execute("UPDATE users SET monthly_msgs = 0")
-    conn.commit()
+    tables = ['users', 'mutes', 'bans', 'weddings', 'logs']
+    backup_text = f"# Бэкап NEVERMORE BOT\n# Дата: {datetime.now()}\n\n"
+    for table in tables:
+        c.execute(f"SELECT * FROM {table}")
+        rows = c.fetchall()
+        backup_text += f"\n## {table.upper()} ({len(rows)} записей)\n"
+        for row in rows:
+            backup_text += f"{row}\n"
     conn.close()
+    return backup_text
 
 # ========== РАНГИ ==========
 game_ranks = {
@@ -303,6 +311,24 @@ def check_rule_violation(text):
     if any(w in text_lower for w in nazi):
         violations.append(("nazi", 60))
     return violations
+
+# ========== АВТОМАТИЧЕСКИЙ БЭКАП ==========
+async def auto_backup(context: ContextTypes.DEFAULT_TYPE):
+    """Автоматический бэкап базы данных в Telegram канал"""
+    try:
+        backup_text = get_full_backup_text()
+        bio = io.BytesIO(backup_text.encode('utf-8'))
+        bio.name = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        
+        await context.bot.send_document(
+            chat_id=BACKUP_CHANNEL_ID,
+            document=bio,
+            caption=f"📦 *Автобэкап* {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        print(f"✅ Автобэкап отправлен в канал {BACKUP_CHANNEL_ID}")
+    except Exception as e:
+        print(f"❌ Ошибка автобэкапа: {e}")
 
 # ========== ОСНОВНЫЕ КОМАНДЫ ==========
 pending_weddings = {}
@@ -378,6 +404,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 📜 *ПРАВИЛА:*
 /rules - Показать правила
+
+💾 *БЭКАП:*
+/backupdb - Скачать базу данных
 """
     await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
 
@@ -942,25 +971,13 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
     await update.message.reply_text("❌ Не найден")
 
-# ========== БЭКАП БАЗЫ ==========
+# ========== БЭКАП ==========
 async def backup_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
         await update.message.reply_text("⛔ Только для админов!")
         return
     
-    conn = get_db()
-    c = conn.cursor()
-    tables = ['users', 'mutes', 'bans', 'weddings', 'logs']
-    backup_text = f"# Бэкап NEVERMORE BOT\n# Дата: {datetime.now()}\n\n"
-    
-    for table in tables:
-        c.execute(f"SELECT * FROM {table}")
-        rows = c.fetchall()
-        backup_text += f"\n## {table.upper()} ({len(rows)} записей)\n"
-        for row in rows:
-            backup_text += f"{row}\n"
-    conn.close()
-    
+    backup_text = get_full_backup_text()
     bio = io.BytesIO(backup_text.encode('utf-8'))
     bio.name = f"nevermore_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
     await update.message.reply_document(document=bio, caption="📦 *Бэкап базы данных*", parse_mode=ParseMode.MARKDOWN)
@@ -1145,7 +1162,12 @@ if __name__ == "__main__":
     app.add_handler(CallbackQueryHandler(button_callback))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
     
+    # Автоматический бэкап каждые 6 часов
+    job_queue = app.job_queue
+    job_queue.run_repeating(auto_backup, interval=21600, first=10)
+    
     print("✅ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
     print("✅ БОТ ГОТОВ К ЗАПУСКУ! 🔥")
+    print("✅ Автобэкап в Telegram канал запущен (каждые 6 часов)")
     print("🔄 Запускаю polling...")
     app.run_polling()
