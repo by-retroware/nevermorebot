@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
-import asyncpg
+import asyncpg  # ← исправлено!
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ========== НАСТРОЙКА ==========
