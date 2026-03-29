@@ -443,6 +443,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /grole [@username] [0-10] - Игровая роль
 /roles - Все роли
 /all - Призвать всех
+/reg - Список незарегистрированных
 
 📜 *ПРАВИЛА:*
 /rules - Показать правила
@@ -519,32 +520,39 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     users_list = get_all_users()
     
+    # Находим лидера, замов и модераторов по ролям из БД
     leader = None
-    deputy = None
+    deputies = []
     moderators = []
     
     for u in users_list:
         if u.get("mod_role") == 10:
             leader = u
         elif u.get("mod_role") == 9:
-            deputy = u
+            deputies.append(u)
         elif u.get("mod_role") == 8:
             moderators.append(u)
     
-    leader_text = f"@{leader['username'] or leader['name']}" if leader else "Не указан"
-    deputy_text = f"@{deputy['username'] or deputy['name']}" if deputy else "Не указан"
-    moderators_text = ", ".join([f"@{m['username'] or m['name']}" for m in moderators]) if moderators else "Не указаны"
+    leader_text = f"@{leader['username'] or leader['name']}" if leader else "Не назначен"
+    deputies_text = ", ".join([f"@{d['username'] or d['name']}" for d in deputies]) if deputies else "Не назначены"
+    moderators_text = ", ".join([f"@{m['username'] or m['name']}" for m in moderators]) if moderators else "Не назначены"
+    
+    # Зарегистрированные и незарегистрированные
+    registered = [u for u in users_list if u.get("nickname")]
+    unregistered = [u for u in users_list if not u.get("nickname")]
     
     info_text = f"""
 ℹ️ *ИНФОРМАЦИЯ О СЕМЬЕ {FAMILY_NAME}* ℹ️
 
 🛡 *РУКОВОДСТВО:*
 👑 Лидер: {leader_text}
-⚔️ Зам. лидера: {deputy_text}
+⚔️ Зам. лидера: {deputies_text}
 🛡 Модератор: {moderators_text}
 
 📊 *СТАТИСТИКА:*
-👥 Участников: {len(users_list)}
+👥 Всего участников: {len(users_list)}
+✅ Зарегистрировано: {len(registered)}
+❌ Не зарегистрировано: {len(unregistered)}
 
 📌 *ССЫЛКИ:*
 📜 Правила: {RULES_LINK}
@@ -1515,6 +1523,28 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     add_user(user)
 
+async def reg_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показать незарегистрированных пользователей (только для админов)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    users_list = get_all_users()
+    unregistered = [u for u in users_list if not u.get("nickname")]
+    
+    if not unregistered:
+        await update.message.reply_text("✅ Все пользователи зарегистрированы!")
+        return
+    
+    text = "📋 *НЕЗАРЕГИСТРИРОВАННЫЕ ПОЛЬЗОВАТЕЛИ:*\n\n"
+    for u in unregistered[:30]:
+        name = u.get('name') or str(u['user_id'])
+        username = f" (@{u['username']})" if u.get('username') else ""
+        text += f"• {name}{username}\n"
+    
+    text += f"\n📊 Всего: {len(unregistered)}"
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
 # ========== ЗАПУСК (БЕЗ ВЕБ-СЕРВЕРА) ==========
 if __name__ == "__main__":
     print("🚀 ЗАПУСК NEVERMORE FAMILY BOT...")
@@ -1586,6 +1616,7 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_auth))
     app.add_handler(CallbackQueryHandler(button_callback))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
+    app.add_handler(CommandHandler("reg", reg_command))
     
     print("✅ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
     print("✅ БОТ ГОТОВ К ЗАПУСКУ! 🔥")
