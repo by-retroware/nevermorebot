@@ -520,7 +520,6 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     users_list = get_all_users()
     
-    # Находим лидера, замов и модераторов по ролям из БД
     leader = None
     deputies = []
     moderators = []
@@ -537,7 +536,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     deputies_text = ", ".join([f"@{d['username'] or d['name']}" for d in deputies]) if deputies else "Не назначены"
     moderators_text = ", ".join([f"@{m['username'] or m['name']}" for m in moderators]) if moderators else "Не назначены"
     
-    # Зарегистрированные и незарегистрированные
     registered = [u for u in users_list if u.get("nickname")]
     unregistered = [u for u in users_list if not u.get("nickname")]
     
@@ -706,9 +704,8 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
     await update.message.reply_text("❌ Пользователь не найден")
 
-# ========== МОДЕРАЦИЯ (РАБОТАЕТ ПО USERNAME) ==========
+# ========== МОДЕРАЦИЯ ==========
 async def get_target_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Получает целевого пользователя из reply или username"""
     if update.message.reply_to_message:
         return update.message.reply_to_message.from_user
     if context.args:
@@ -721,23 +718,19 @@ async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_moderator(update.effective_user.id):
         await update.message.reply_text("⛔ Нет прав! Требуется роль 8+")
         return
-    
     target_user = await get_target_user(update, context)
     if not target_user:
         await update.message.reply_text("❌ Укажите пользователя: /warn [@username/reply] [причина]")
         return
-    
     reason = ' '.join(context.args[1:]) if context.args else "Нарушение правил"
     t = get_user(target_user.id)
     if not t:
         add_user(target_user)
         t = get_user(target_user.id)
-    
     new_warns = (t["warns"] or 0) + 1
     update_user(target_user.id, "warns", new_warns)
     await update.message.reply_text(f"⚠️ *{target_user.first_name}* получил предупреждение!\n📝 Причина: {reason}\n⚠️ Предупреждений: {new_warns}/3", parse_mode=ParseMode.MARKDOWN)
     add_log(update.effective_user.id, "warn", target_user.id, reason)
-    
     if new_warns >= 3:
         add_mute(target_user.id, 1440, "Автоматический мут за 3 предупреждения", update.effective_user.id)
         await update.message.reply_text(f"🔇 {target_user.first_name} автоматически замучен на 1 день!")
@@ -763,12 +756,10 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_moderator(update.effective_user.id):
         await update.message.reply_text("⛔ Нет прав! Требуется роль 8+")
         return
-    
     target_user = await get_target_user(update, context)
     if not target_user:
         await update.message.reply_text("❌ Укажите пользователя: /mute [@username/reply] [время] [причина]")
         return
-    
     minutes = 60
     reason = "Нарушение правил"
     if len(context.args) > 1:
@@ -777,7 +768,6 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reason = ' '.join(context.args[2:]) if len(context.args) > 2 else "Нарушение правил"
         except:
             reason = ' '.join(context.args[1:])
-    
     add_mute(target_user.id, minutes, reason, update.effective_user.id)
     await update.message.reply_text(f"🔇 *{target_user.first_name}* замучен на {minutes} минут!\n📝 Причина: {reason}", parse_mode=ParseMode.MARKDOWN)
     add_log(update.effective_user.id, "mute", target_user.id, f"{minutes}мин - {reason}")
@@ -786,12 +776,10 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_moderator(update.effective_user.id):
         await update.message.reply_text("⛔ Нет прав! Требуется роль 8+")
         return
-    
     target_user = await get_target_user(update, context)
     if not target_user:
         await update.message.reply_text("❌ Укажите пользователя: /unmute [@username/reply]")
         return
-    
     remove_mute(target_user.id)
     await update.message.reply_text(f"🔊 *{target_user.first_name}* размучен!", parse_mode=ParseMode.MARKDOWN)
     add_log(update.effective_user.id, "unmute", target_user.id)
@@ -800,12 +788,10 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_moderator(update.effective_user.id):
         await update.message.reply_text("⛔ Нет прав! Требуется роль 8+")
         return
-    
     target_user = await get_target_user(update, context)
     if not target_user:
         await update.message.reply_text("❌ Укажите пользователя: /ban [@username/reply] [причина]")
         return
-    
     reason = ' '.join(context.args[1:]) if len(context.args) > 1 else "Нарушение правил"
     add_ban(target_user.id, 365, reason, update.effective_user.id)
     await update.message.reply_text(f"🔨 *{target_user.first_name}* забанен!\n📝 Причина: {reason}", parse_mode=ParseMode.MARKDOWN)
@@ -1389,6 +1375,28 @@ async def creator_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """
     await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
+async def reg_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показать незарегистрированных пользователей (только для админов)"""
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("⛔ Только для создателя!")
+        return
+    
+    users_list = get_all_users()
+    unregistered = [u for u in users_list if not u.get("nickname")]
+    
+    if not unregistered:
+        await update.message.reply_text("✅ Все пользователи зарегистрированы!")
+        return
+    
+    text = "📋 *НЕЗАРЕГИСТРИРОВАННЫЕ ПОЛЬЗОВАТЕЛИ:*\n\n"
+    for u in unregistered[:30]:
+        name = u.get('name') or str(u['user_id'])
+        username = f" (@{u['username']})" if u.get('username') else ""
+        text += f"• {name}{username}\n"
+    
+    text += f"\n📊 Всего: {len(unregistered)}"
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
 # ========== КНОПКИ ==========
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -1523,29 +1531,29 @@ async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     add_user(user)
 
-async def reg_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показать незарегистрированных пользователей (только для админов)"""
-    if update.effective_user.id not in ADMINS:
-        await update.message.reply_text("⛔ Только для создателя!")
-        return
-    
-    users_list = get_all_users()
-    unregistered = [u for u in users_list if not u.get("nickname")]
-    
-    if not unregistered:
-        await update.message.reply_text("✅ Все пользователи зарегистрированы!")
-        return
-    
-    text = "📋 *НЕЗАРЕГИСТРИРОВАННЫЕ ПОЛЬЗОВАТЕЛИ:*\n\n"
-    for u in unregistered[:30]:
-        name = u.get('name') or str(u['user_id'])
-        username = f" (@{u['username']})" if u.get('username') else ""
-        text += f"• {name}{username}\n"
-    
-    text += f"\n📊 Всего: {len(unregistered)}"
-    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+# ========== МИНИМАЛЬНЫЙ ВЕБ-СЕРВЕР ДЛЯ RENDER ==========
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 
-# ========== ЗАПУСК (БЕЗ ВЕБ-СЕРВЕРА) ==========
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'<h1>Nevermore Bot is running!</h1>')
+    def log_message(self, format, *args):
+        pass
+
+def run_web_server():
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthHandler)
+    print(f"✅ Веб-сервер запущен на порту {port}")
+    server.serve_forever()
+
+web_thread = threading.Thread(target=run_web_server, daemon=True)
+web_thread.start()
+
+# ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print("🚀 ЗАПУСК NEVERMORE FAMILY BOT...")
     init_db()
@@ -1613,10 +1621,10 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("resetuser", reset_user))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("clearlogs", clear_logs))
+    app.add_handler(CommandHandler("reg", reg_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_auth))
     app.add_handler(CallbackQueryHandler(button_callback))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, all_messages))
-    app.add_handler(CommandHandler("reg", reg_command))
     
     print("✅ ВСЕ ОБРАБОТЧИКИ ЗАРЕГИСТРИРОВАНЫ")
     print("✅ БОТ ГОТОВ К ЗАПУСКУ! 🔥")
